@@ -2,7 +2,7 @@ import { LitElement, html, css } from 'lit';
 import { customElement, query } from 'lit/decorators.js';
 import { SignalWatcher } from 'avosignals';
 import {
-  isPinDialogOpen, isUnpinDialogOpen, isEditDialogOpen, isDeleteDialogOpen,
+  isPinDialogOpen, isUnpinDialogOpen, isEditDialogOpen, isDeleteDialogOpen, isSettingsOpen,
   searchQuery, activeItem, combinedItems, moveActiveIndexInPanel, moveActivePanel, setActiveIndex,
 } from '../store/clipboard-store';
 import './history-list';
@@ -12,6 +12,7 @@ import './pin-dialog';
 import './unpin-dialog';
 import './edit-dialog';
 import './delete-dialog';
+import './settings-dialog';
 
 @customElement('pastry-app')
 export class PastryApp extends LitElement {
@@ -44,6 +45,23 @@ export class PastryApp extends LitElement {
       font-weight: 600;
       color: #aaa;
       letter-spacing: 0.04em;
+    }
+    .settings-btn {
+      -webkit-app-region: no-drag;
+      margin-left: auto;
+      background: transparent;
+      border: none;
+      color: #888;
+      cursor: pointer;
+      font-size: 14px;
+      line-height: 1;
+      padding: 2px 4px;
+      border-radius: 4px;
+      transition: color 0.1s, background 0.1s;
+    }
+    .settings-btn:hover {
+      color: #ccc;
+      background: rgba(255, 255, 255, 0.08);
     }
     .search-bar {
       padding: 8px 12px 6px;
@@ -117,7 +135,7 @@ export class PastryApp extends LitElement {
 
   private _onKeyDown = (e: KeyboardEvent): void => {
     // Don't intercept when a dialog is open or user is editing pinned item text.
-    if (isPinDialogOpen.get() || isUnpinDialogOpen.get() || isEditDialogOpen.get() || isDeleteDialogOpen.get()) return;
+    if (isPinDialogOpen.get() || isUnpinDialogOpen.get() || isEditDialogOpen.get() || isDeleteDialogOpen.get() || isSettingsOpen.get()) return;
 
     // If search is not focused and user types an alphanumeric character (no modifiers),
     // focus the search input and let the keystroke land in it naturally.
@@ -202,6 +220,7 @@ export class PastryApp extends LitElement {
     return html`
       <div class="titlebar">
         <span class="titlebar-text">Pastry</span>
+        <button class="settings-btn" title="Settings" @click=${() => isSettingsOpen.set(true)}>⚙</button>
       </div>
       <div class="search-bar">
         <input
@@ -237,6 +256,7 @@ export class PastryApp extends LitElement {
       ${isUnpinDialogOpen.get() ? html`<unpin-dialog></unpin-dialog>` : ''}
       ${isEditDialogOpen.get() ? html`<edit-dialog></edit-dialog>` : ''}
       ${isDeleteDialogOpen.get() ? html`<delete-dialog></delete-dialog>` : ''}
+      ${isSettingsOpen.get() ? html`<settings-dialog></settings-dialog>` : ''}
     `;
   }
 }

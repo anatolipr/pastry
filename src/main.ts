@@ -12,6 +12,7 @@ if (started) {
 
 let mainWindow: BrowserWindow | null = null;
 let previousApp = '';
+let currentShortcut = GLOBAL_SHORTCUT;
 
 const createWindow = () => {
   mainWindow = new BrowserWindow({
@@ -147,32 +148,68 @@ function startClipboardWatcher(): void {
 // App lifecycle
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Window toggle
+// ---------------------------------------------------------------------------
+
+function toggleWindow(): void {
+  if (!mainWindow) return;
+  if (mainWindow.isVisible()) {
+    mainWindow.hide();
+  } else {
+    exec(
+      `osascript -e 'tell application "System Events" to get name of first application process whose frontmost is true'`,
+      (err, stdout) => {
+        if (err) {
+          console.error('[pastry] capture frontmost failed:', err.message);
+        } else {
+          previousApp = stdout.trim();
+          console.log('[pastry] captured previousApp:', JSON.stringify(previousApp));
+        }
+        mainWindow?.show();
+        mainWindow?.focus();
+        app.show();
+      },
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Global shortcut IPC
+// ---------------------------------------------------------------------------
+
+ipcMain.handle('shortcut:register', (_event, newShortcut: string) => {
+  globalShortcut.unregister(currentShortcut);
+  const ok = globalShortcut.register(newShortcut, toggleWindow);
+  if (ok) {
+    currentShortcut = newShortcut;
+  } else {
+    // Restore the previous shortcut so the app remains accessible.
+    globalShortcut.register(currentShortcut, toggleWindow);
+  }
+  return ok;
+});
+
+// ---------------------------------------------------------------------------
+// App lifecycle
+// ---------------------------------------------------------------------------
+
 app.on('ready', () => {
+  // Read stored shortcut before registering so user's preference is used
+  // immediately on startup (same file main uses for store:load).
+  try {
+    const raw = fs.readFileSync(getStorePath(), 'utf-8');
+    const data = JSON.parse(raw);
+    if (typeof data.shortcut === 'string' && data.shortcut) {
+      currentShortcut = data.shortcut;
+    }
+  } catch {
+    // File doesn't exist yet or is invalid — use the default.
+  }
+
   createWindow();
   startClipboardWatcher();
-
-  globalShortcut.register(GLOBAL_SHORTCUT, () => {
-    if (!mainWindow) return;
-    if (mainWindow.isVisible()) {
-      mainWindow.hide();
-    } else {
-      // Capture the currently active app before stealing focus.
-      exec(
-        `osascript -e 'tell application "System Events" to get name of first application process whose frontmost is true'`,
-        (err, stdout) => {
-          if (err) {
-            console.error('[pastry] capture frontmost failed:', err.message);
-          } else {
-            previousApp = stdout.trim();
-            console.log('[pastry] captured previousApp:', JSON.stringify(previousApp));
-          }
-          mainWindow?.show();
-          mainWindow?.focus();
-          app.show();
-        },
-      );
-    }
-  });
+  globalShortcut.register(currentShortcut, toggleWindow);
 });
 
 app.on('will-quit', () => {

@@ -3,8 +3,6 @@ import { customElement } from 'lit/decorators.js';
 import { SignalWatcher } from 'avosignals';
 import {
   filteredHistory,
-  historySize,
-  setHistorySize,
   clearHistory,
   activeIndex,
 } from '../store/clipboard-store';
@@ -30,35 +28,11 @@ export class HistoryList extends LitElement {
       padding: 0 10px 6px;
       flex-shrink: 0;
     }
-    .settings-row {
+    .controls-row {
       display: flex;
       align-items: center;
-      gap: 6px;
       padding: 0 10px 10px;
       flex-shrink: 0;
-    }
-    .settings-label {
-      font-size: 11px;
-      color: #999;
-      white-space: nowrap;
-    }
-    .settings-row input[type="number"] {
-      width: 52px;
-      background: rgba(255,255,255,0.06);
-      border: 1px solid rgba(255,255,255,0.12);
-      border-radius: 5px;
-      color: #ddd;
-      font-size: 12px;
-      padding: 3px 6px;
-      outline: none;
-      -moz-appearance: textfield;
-    }
-    .settings-row input[type="number"]::-webkit-outer-spin-button,
-    .settings-row input[type="number"]::-webkit-inner-spin-button {
-      -webkit-appearance: none;
-    }
-    .settings-row input[type="number"]:focus {
-      border-color: rgba(255,255,255,0.3);
     }
     .clear-btn {
       margin-left: auto;
@@ -89,25 +63,12 @@ export class HistoryList extends LitElement {
     }
   `;
 
-  private _onSizeChange(e: Event): void {
-    const val = parseInt((e.target as HTMLInputElement).value, 10);
-    if (!isNaN(val)) setHistorySize(val);
-  }
-
   render() {
     const items = filteredHistory.get();
     const idx = activeIndex.get();
     return html`
       <div class="header">Clipboard History</div>
-      <div class="settings-row">
-        <span class="settings-label">History size:</span>
-        <input
-          type="number"
-          min="1"
-          max="200"
-          .value=${String(historySize.get())}
-          @change=${this._onSizeChange}
-        />
+      <div class="controls-row">
         <button class="clear-btn" @click=${() => clearHistory()}>Clear history</button>
       </div>
       <div class="list">

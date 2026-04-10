@@ -32,6 +32,10 @@ const api: PastryAPI = {
   hideWindow() {
     ipcRenderer.send('window:hide');
   },
+
+  registerShortcut(shortcut: string): Promise<boolean> {
+    return ipcRenderer.invoke('shortcut:register', shortcut);
+  },
 };
 
 contextBridge.exposeInMainWorld('pastryAPI', api);

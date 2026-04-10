@@ -11,12 +11,14 @@ export interface PastryAPI {
   loadStore: () => Promise<PastryStore | null>;
   saveStore: (data: PastryStore) => void;
   hideWindow: () => void;
+  registerShortcut: (shortcut: string) => Promise<boolean>;
 }
 
 export interface PastryStore {
   history: import('./shared-types').ClipboardEntry[];
   pinned: import('./shared-types').PinnedEntry[];
   historySize: number;
+  shortcut?: string;
 }
 
 declare global {

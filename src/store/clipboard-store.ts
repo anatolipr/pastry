@@ -1,6 +1,6 @@
 import { Signal, Computed } from 'avosignals';
 import type { ClipboardEntry, PinnedEntry } from '../shared-types';
-import { DEFAULT_HISTORY_SIZE } from '../constants';
+import { DEFAULT_HISTORY_SIZE, GLOBAL_SHORTCUT } from '../constants';
 
 export type ActiveItem =
   | { kind: 'history'; entry: ClipboardEntry }
@@ -13,8 +13,10 @@ export type ActiveItem =
 export const clipboardHistory = new Signal<ClipboardEntry[]>([], 'clipboardHistory');
 export const pinnedItems = new Signal<PinnedEntry[]>([], 'pinnedItems');
 export const historySize = new Signal<number>(DEFAULT_HISTORY_SIZE, 'historySize');
+export const shortcut = new Signal<string>(GLOBAL_SHORTCUT, 'shortcut');
 export const searchQuery = new Signal<string>('', 'searchQuery');
 export const activeIndex = new Signal<number>(-1, 'activeIndex');
+export const isSettingsOpen = new Signal<boolean>(false, 'isSettingsOpen');
 
 /** The entry currently being considered for pinning (drives pin-dialog). */
 export const pinTarget = new Signal<ClipboardEntry | null>(null, 'pinTarget');
@@ -194,6 +196,11 @@ export function copyHistoryItemToTop(id: string): void {
   persistStore();
 }
 
+export function setShortcut(s: string): void {
+  shortcut.set(s);
+  persistStore();
+}
+
 export function setHistorySize(size: number): void {
   const clamped = Math.max(1, Math.min(200, size));
   historySize.set(clamped);
@@ -301,6 +308,7 @@ export function persistStore(): void {
       history: clipboardHistory.get(),
       pinned: pinnedItems.get(),
       historySize: historySize.get(),
+      shortcut: shortcut.get(),
     });
   }, 400);
 }
@@ -312,5 +320,6 @@ export async function loadPersistedStore(): Promise<void> {
   if (Array.isArray(data.history)) clipboardHistory.set(data.history);
   if (Array.isArray(data.pinned)) pinnedItems.set(data.pinned);
   if (typeof data.historySize === 'number') historySize.set(data.historySize);
+  if (typeof data.shortcut === 'string' && data.shortcut) shortcut.set(data.shortcut);
 }
 
