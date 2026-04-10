@@ -10,6 +10,7 @@ export interface PastryAPI {
   onClipboardChange: (callback: (payload: ClipboardPayload) => void) => () => void;
   loadStore: () => Promise<PastryStore | null>;
   saveStore: (data: PastryStore) => void;
+  hideWindow: () => void;
 }
 
 export interface PastryStore {

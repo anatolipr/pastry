@@ -28,6 +28,10 @@ const api: PastryAPI = {
   saveStore(data) {
     ipcRenderer.send('store:save', data);
   },
+
+  hideWindow() {
+    ipcRenderer.send('window:hide');
+  },
 };
 
 contextBridge.exposeInMainWorld('pastryAPI', api);

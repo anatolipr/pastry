@@ -44,15 +44,28 @@ const createWindow = () => {
   });
 };
 
+ipcMain.on('window:hide', () => {
+  mainWindow?.hide();
+});
+
 // ---------------------------------------------------------------------------
 // IPC handlers
 // ---------------------------------------------------------------------------
 
+// Track what Pastry itself writes so the watcher doesn't re-add it to history.
+let lastClipboardText = '';
+let lastImageSignature = ''; // length+prefix to detect changes without full compare
+
 ipcMain.on('clipboard:write', (_event, text: string) => {
+  lastClipboardText = text;
+  lastImageSignature = '';
   clipboard.writeText(text);
 });
 
 ipcMain.on('clipboard:write-image', (_event, dataUrl: string) => {
+  const sig = `${dataUrl.length}:${dataUrl.slice(0, 40)}`;
+  lastImageSignature = sig;
+  lastClipboardText = '';
   clipboard.writeImage(nativeImage.createFromDataURL(dataUrl));
 });
 
@@ -104,8 +117,6 @@ ipcMain.on('clipboard:paste', (_event, payload: { text?: string; imageDataUrl?: 
 // ---------------------------------------------------------------------------
 
 const IMAGE_SIZE_LIMIT = 5 * 1024 * 1024; // 5 MB data-URL cap
-let lastClipboardText = '';
-let lastImageSignature = ''; // length+prefix to detect changes without full compare
 
 function startClipboardWatcher(): void {
   setInterval(() => {

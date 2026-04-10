@@ -25,6 +25,9 @@ export const unpinTarget = new Signal<PinnedEntry | null>(null, 'unpinTarget');
 /** The pinned entry currently being edited (drives edit-dialog). */
 export const editTarget = new Signal<PinnedEntry | null>(null, 'editTarget');
 
+/** The history entry currently being considered for deletion (drives delete-dialog). */
+export const deleteTarget = new Signal<ClipboardEntry | null>(null, 'deleteTarget');
+
 // ---------------------------------------------------------------------------
 // Derived / computed
 // ---------------------------------------------------------------------------
@@ -42,6 +45,11 @@ export const isUnpinDialogOpen = new Computed<boolean>(
 export const isEditDialogOpen = new Computed<boolean>(
   () => editTarget.get() !== null,
   'isEditDialogOpen',
+);
+
+export const isDeleteDialogOpen = new Computed<boolean>(
+  () => deleteTarget.get() !== null,
+  'isDeleteDialogOpen',
 );
 
 export const filteredHistory = new Computed<ClipboardEntry[]>(() => {
@@ -152,11 +160,50 @@ export function setEditTarget(entry: PinnedEntry | null): void {
   editTarget.set(entry);
 }
 
+export function setDeleteTarget(entry: ClipboardEntry | null): void {
+  deleteTarget.set(entry);
+}
+
+export function deleteHistoryItem(id: string): void {
+  clipboardHistory.update((prev) => prev.filter((e) => e.id !== id));
+  deleteTarget.set(null);
+  persistStore();
+}
+
+export function moveHistoryItemToTop(id: string): void {
+  clipboardHistory.update((prev) => {
+    const idx = prev.findIndex((e) => e.id === id);
+    if (idx <= 0) return prev; // already on top or not found
+    const item = prev[idx];
+    return [item, ...prev.slice(0, idx), ...prev.slice(idx + 1)];
+  });
+  persistStore();
+}
+
+export function copyHistoryItemToTop(id: string): void {
+  clipboardHistory.update((prev) => {
+    const original = prev.find((e) => e.id === id);
+    if (!original) return prev;
+    const fresh: ClipboardEntry = {
+      ...original,
+      id: crypto.randomUUID(),
+      timestamp: Date.now(),
+    };
+    return [fresh, ...prev].slice(0, historySize.get());
+  });
+  persistStore();
+}
+
 export function setHistorySize(size: number): void {
   const clamped = Math.max(1, Math.min(200, size));
   historySize.set(clamped);
   // Trim existing history if new size is smaller.
   clipboardHistory.update((prev) => prev.slice(0, clamped));
+  persistStore();
+}
+
+export function clearHistory(): void {
+  clipboardHistory.set([]);
   persistStore();
 }
 
@@ -175,6 +222,69 @@ export function moveActiveIndex(delta: number): void {
     ? (delta > 0 ? 0 : len - 1)
     : (current + delta + len) % len;
   activeIndex.set(next);
+}
+
+/**
+ * Move ↑↓ within the active panel only, wrapping within that panel.
+ * When search is active there is only one combined list — behaves like moveActiveIndex.
+ */
+export function moveActiveIndexInPanel(delta: number): void {
+  const hLen = filteredHistory.get().length;
+  const pLen = filteredPinned.get().length;
+  const total = hLen + pLen;
+  if (total === 0) return;
+
+  const current = activeIndex.get();
+  const isSearching = searchQuery.get().trim().length > 0;
+
+  if (isSearching) {
+    // Single flat list — wrap across everything.
+    const next = current < 0
+      ? (delta > 0 ? 0 : total - 1)
+      : (current + delta + total) % total;
+    activeIndex.set(next);
+    return;
+  }
+
+  // Determine which panel the current selection is in.
+  const inPinned = current >= hLen && current < total;
+
+  if (!inPinned) {
+    // Currently in history (or nothing selected).
+    if (hLen === 0) return;
+    if (current < 0) {
+      activeIndex.set(delta > 0 ? 0 : hLen - 1);
+    } else {
+      activeIndex.set((current + delta + hLen) % hLen);
+    }
+  } else {
+    // Currently in pinned.
+    if (pLen === 0) return;
+    const localIdx = current - hLen;
+    const nextLocal = (localIdx + delta + pLen) % pLen;
+    activeIndex.set(hLen + nextLocal);
+  }
+}
+
+/**
+ * Move ←→ between history and pinned panels.
+ * direction: 1 = history→pinned, -1 = pinned→history.
+ */
+export function moveActivePanel(direction: number): void {
+  const hLen = filteredHistory.get().length;
+  const pLen = filteredPinned.get().length;
+  const current = activeIndex.get();
+  const inPinned = current >= hLen && current < hLen + pLen;
+
+  if (direction > 0 && !inPinned) {
+    // history → pinned: jump to first pinned item
+    if (pLen === 0) return;
+    activeIndex.set(hLen);
+  } else if (direction < 0 && inPinned) {
+    // pinned → history: jump to first history item
+    if (hLen === 0) return;
+    activeIndex.set(0);
+  }
 }
 
 // ---------------------------------------------------------------------------

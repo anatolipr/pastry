@@ -5,6 +5,7 @@ import {
   filteredHistory,
   historySize,
   setHistorySize,
+  clearHistory,
   activeIndex,
 } from '../store/clipboard-store';
 import './clipboard-item';
@@ -18,13 +19,14 @@ export class HistoryList extends LitElement {
       display: flex;
       flex-direction: column;
       min-height: 0;
+      flex: 1;
     }
     .header {
       font-size: 11px;
       font-weight: 700;
       letter-spacing: 0.08em;
       text-transform: uppercase;
-      color: #666;
+      color: #888;
       padding: 0 10px 6px;
       flex-shrink: 0;
     }
@@ -37,7 +39,7 @@ export class HistoryList extends LitElement {
     }
     .settings-label {
       font-size: 11px;
-      color: #555;
+      color: #999;
       white-space: nowrap;
     }
     .settings-row input[type="number"] {
@@ -58,6 +60,21 @@ export class HistoryList extends LitElement {
     .settings-row input[type="number"]:focus {
       border-color: rgba(255,255,255,0.3);
     }
+    .clear-btn {
+      margin-left: auto;
+      background: transparent;
+      border: 1px solid rgba(224,90,90,0.35);
+      border-radius: 4px;
+      color: #e05a5a;
+      cursor: pointer;
+      font-size: 10px;
+      padding: 3px 7px;
+      transition: background 0.1s;
+      white-space: nowrap;
+    }
+    .clear-btn:hover {
+      background: rgba(224,90,90,0.15);
+    }
     .list {
       flex: 1;
       overflow-y: auto;
@@ -66,7 +83,7 @@ export class HistoryList extends LitElement {
     }
     .empty {
       font-size: 12px;
-      color: #555;
+      color: #888;
       padding: 16px 10px;
       text-align: center;
     }
@@ -91,6 +108,7 @@ export class HistoryList extends LitElement {
           .value=${String(historySize.get())}
           @change=${this._onSizeChange}
         />
+        <button class="clear-btn" @click=${() => clearHistory()}>Clear history</button>
       </div>
       <div class="list">
         ${items.length === 0

@@ -2,14 +2,16 @@ import { LitElement, html, css } from 'lit';
 import { customElement, query } from 'lit/decorators.js';
 import { SignalWatcher } from 'avosignals';
 import {
-  isPinDialogOpen, isUnpinDialogOpen, isEditDialogOpen,
-  searchQuery, activeItem, moveActiveIndex, setActiveIndex,
+  isPinDialogOpen, isUnpinDialogOpen, isEditDialogOpen, isDeleteDialogOpen,
+  searchQuery, activeItem, combinedItems, moveActiveIndexInPanel, moveActivePanel, setActiveIndex,
 } from '../store/clipboard-store';
 import './history-list';
 import './pinned-list';
+import './search-results';
 import './pin-dialog';
 import './unpin-dialog';
 import './edit-dialog';
+import './delete-dialog';
 
 @customElement('pastry-app')
 export class PastryApp extends LitElement {
@@ -40,7 +42,7 @@ export class PastryApp extends LitElement {
     .titlebar-text {
       font-size: 12px;
       font-weight: 600;
-      color: #888;
+      color: #aaa;
       letter-spacing: 0.04em;
     }
     .search-bar {
@@ -70,6 +72,9 @@ export class PastryApp extends LitElement {
       min-height: 0;
       gap: 0;
     }
+    .panels.single {
+      flex-direction: column;
+    }
     .panel {
       flex: 1;
       display: flex;
@@ -85,7 +90,7 @@ export class PastryApp extends LitElement {
     }
     .hint {
       font-size: 10px;
-      color: #444;
+      color: #777;
       padding: 3px 12px 5px;
       flex-shrink: 0;
       letter-spacing: 0.02em;
@@ -112,15 +117,39 @@ export class PastryApp extends LitElement {
 
   private _onKeyDown = (e: KeyboardEvent): void => {
     // Don't intercept when a dialog is open or user is editing pinned item text.
-    if (isPinDialogOpen.get() || isUnpinDialogOpen.get() || isEditDialogOpen.get()) return;
+    if (isPinDialogOpen.get() || isUnpinDialogOpen.get() || isEditDialogOpen.get() || isDeleteDialogOpen.get()) return;
+
+    // If search is not focused and user types an alphanumeric character (no modifiers),
+    // focus the search input and let the keystroke land in it naturally.
+    const searchFocused = this.shadowRoot?.activeElement?.id === 'search-input'
+      || document.activeElement === this._searchInput;
+    if (
+      !searchFocused &&
+      e.key.length === 1 &&
+      /^[a-zA-Z0-9]$/.test(e.key) &&
+      !e.metaKey && !e.ctrlKey && !e.altKey
+    ) {
+      this._searchInput?.focus();
+      setActiveIndex(-1);
+      // Don't preventDefault — let the character reach the now-focused input.
+      return;
+    }
 
     if (e.key === 'ArrowDown') {
       e.preventDefault();
-      moveActiveIndex(1);
+      moveActiveIndexInPanel(1);
       this._scrollActiveIntoView();
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
-      moveActiveIndex(-1);
+      moveActiveIndexInPanel(-1);
+      this._scrollActiveIntoView();
+    } else if (e.key === 'ArrowRight') {
+      e.preventDefault();
+      moveActivePanel(1);
+      this._scrollActiveIntoView();
+    } else if (e.key === 'ArrowLeft') {
+      e.preventDefault();
+      moveActivePanel(-1);
       this._scrollActiveIntoView();
     } else if (e.key === 'Enter') {
       const item = activeItem.get();
@@ -140,23 +169,33 @@ export class PastryApp extends LitElement {
         }
       }
     } else if (e.key === 'Escape') {
-      // Blur the window — main process will hide it on blur.
-      (document.activeElement as HTMLElement)?.blur?.();
-      window.dispatchEvent(new Event('blur'));
+      window.pastryAPI.hideWindow();
     }
   };
 
   private _scrollActiveIntoView(): void {
-    // Give Lit a tick to re-render highlighted row, then scroll it into view.
     requestAnimationFrame(() => {
-      const active = this.shadowRoot?.querySelector('[data-active="true"]');
-      active?.scrollIntoView({ block: 'nearest' });
+      // The active row lives inside a child custom element's shadow root.
+      // Walk the composed tree to find it.
+      const findActive = (root: ShadowRoot | Document): Element | null => {
+        for (const el of Array.from(root.querySelectorAll('*'))) {
+          if ((el as HTMLElement).dataset?.['active'] === 'true') return el;
+          if (el.shadowRoot) {
+            const found = findActive(el.shadowRoot);
+            if (found) return found;
+          }
+        }
+        return null;
+      };
+      const active = this.shadowRoot ? findActive(this.shadowRoot) : null;
+      active?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     });
   }
 
   private _onSearch(e: Event): void {
     searchQuery.set((e.target as HTMLInputElement).value);
-    setActiveIndex(-1);
+    // Auto-select first result so Enter immediately pastes it.
+    setActiveIndex(combinedItems.get().length > 0 ? 0 : -1);
   }
 
   render() {
@@ -176,18 +215,28 @@ export class PastryApp extends LitElement {
         />
       </div>
       <div class="hint">↑↓ navigate · Enter paste · ⌘C copy · Esc close</div>
-      <div class="panels">
-        <div class="panel">
-          <history-list></history-list>
-        </div>
-        <div class="divider"></div>
-        <div class="panel">
-          <pinned-list></pinned-list>
-        </div>
-      </div>
+      ${searchQuery.get()
+        ? html`
+          <div class="panels single">
+            <div class="panel">
+              <search-results></search-results>
+            </div>
+          </div>`
+        : html`
+          <div class="panels">
+            <div class="panel">
+              <history-list></history-list>
+            </div>
+            <div class="divider"></div>
+            <div class="panel">
+              <pinned-list></pinned-list>
+            </div>
+          </div>`
+      }
       ${isPinDialogOpen.get() ? html`<pin-dialog></pin-dialog>` : ''}
       ${isUnpinDialogOpen.get() ? html`<unpin-dialog></unpin-dialog>` : ''}
       ${isEditDialogOpen.get() ? html`<edit-dialog></edit-dialog>` : ''}
+      ${isDeleteDialogOpen.get() ? html`<delete-dialog></delete-dialog>` : ''}
     `;
   }
 }

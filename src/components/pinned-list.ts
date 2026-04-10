@@ -13,13 +13,14 @@ export class PinnedList extends LitElement {
       display: flex;
       flex-direction: column;
       min-height: 0;
+      flex: 1;
     }
     .header {
       font-size: 11px;
       font-weight: 700;
       letter-spacing: 0.08em;
       text-transform: uppercase;
-      color: #666;
+      color: #888;
       padding: 0 10px 8px;
       flex-shrink: 0;
     }
@@ -31,7 +32,7 @@ export class PinnedList extends LitElement {
     }
     .empty {
       font-size: 12px;
-      color: #555;
+      color: #888;
       padding: 16px 10px;
       text-align: center;
     }

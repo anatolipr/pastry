@@ -1,10 +1,10 @@
 import { LitElement, html, css } from 'lit';
 import { customElement } from 'lit/decorators.js';
 import { SignalWatcher } from 'avosignals';
-import { unpinTarget, isUnpinDialogOpen, unpinItem, setUnpinTarget } from '../store/clipboard-store';
+import { deleteTarget, isDeleteDialogOpen, deleteHistoryItem, setDeleteTarget } from '../store/clipboard-store';
 
-@customElement('unpin-dialog')
-export class UnpinDialog extends LitElement {
+@customElement('delete-dialog')
+export class DeleteDialog extends LitElement {
   private watcher = new SignalWatcher(this);
 
   static styles = css`
@@ -29,19 +29,30 @@ export class UnpinDialog extends LitElement {
       box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
     }
     h3 {
-      margin: 0 0 10px;
+      margin: 0 0 8px;
       font-size: 14px;
       color: #e05a5a;
     }
-    p {
-      font-size: 12px;
-      color: #aaa;
-      margin: 0 0 18px;
-      line-height: 1.5;
+    .preview {
+      font-size: 11px;
+      color: #888;
+      margin-bottom: 18px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
-    .name {
-      color: #e0e0e0;
-      font-weight: 600;
+    .image-preview {
+      margin-bottom: 18px;
+      border-radius: 5px;
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,0.1);
+      display: inline-block;
+    }
+    .image-preview img {
+      max-height: 60px;
+      max-width: 252px;
+      object-fit: contain;
+      display: block;
     }
     .actions {
       display: flex;
@@ -75,35 +86,39 @@ export class UnpinDialog extends LitElement {
   `;
 
   private _handleConfirm(): void {
-    const entry = unpinTarget.get();
+    const entry = deleteTarget.get();
     if (!entry) return;
-    if (entry.imageDataUrl) {
-      window.pastryAPI.writeImageClipboard(entry.imageDataUrl);
-    } else {
-      window.pastryAPI.writeClipboard(entry.text);
-    }
-    unpinItem(entry.id);
+    deleteHistoryItem(entry.id);
   }
 
   private _handleCancel(): void {
-    setUnpinTarget(null);
+    setDeleteTarget(null);
+  }
+
+  private _handleKeydown(e: KeyboardEvent): void {
+    if (e.key === 'Enter') this._handleConfirm();
+    if (e.key === 'Escape') this._handleCancel();
   }
 
   render() {
-    if (!isUnpinDialogOpen.get()) return html``;
+    if (!isDeleteDialogOpen.get()) return html``;
 
-    const entry = unpinTarget.get()!;
+    const entry = deleteTarget.get()!;
+    const isImage = Boolean(entry.imageDataUrl);
+    const preview = isImage
+      ? html`<div class="image-preview"><img src=${entry.imageDataUrl!} /></div>`
+      : html`<div class="preview">${entry.text}</div>`;
 
     return html`
-      <div class="overlay" @click=${(e: MouseEvent) => { if (e.target === e.currentTarget) this._handleCancel(); }}>
+      <div class="overlay"
+           @click=${(e: MouseEvent) => { if (e.target === e.currentTarget) this._handleCancel(); }}
+           @keydown=${this._handleKeydown}>
         <div class="dialog">
-          <h3>Remove pin?</h3>
-          <p>
-            Remove the pin <span class="name">"${entry.name}"</span>? This cannot be undone.
-          </p>
+          <h3>Delete this item?</h3>
+          ${preview}
           <div class="actions">
             <button class="cancel" @click=${this._handleCancel}>Cancel</button>
-            <button class="confirm" @click=${this._handleConfirm}>Remove</button>
+            <button class="confirm" @click=${this._handleConfirm}>Delete</button>
           </div>
         </div>
       </div>

@@ -2,7 +2,7 @@ import { LitElement, html, css } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { SignalWatcher } from 'avosignals';
 import type { PinnedEntry } from '../shared-types';
-import { setUnpinTarget, setEditTarget } from '../store/clipboard-store';
+import { setUnpinTarget, setEditTarget, addToHistory } from '../store/clipboard-store';
 
 @customElement('pinned-item')
 export class PinnedItem extends LitElement {
@@ -22,6 +22,7 @@ export class PinnedItem extends LitElement {
       padding: 8px 10px;
       border-radius: 6px;
       transition: background 0.12s;
+      cursor: pointer;
     }
     .row:hover {
       background: rgba(255, 255, 255, 0.06);
@@ -44,7 +45,7 @@ export class PinnedItem extends LitElement {
     }
     .text {
       font-size: 11px;
-      color: #999;
+      color: #bbb;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -103,6 +104,7 @@ export class PinnedItem extends LitElement {
     } else {
       window.pastryAPI.writeClipboard(this.entry.text);
     }
+    addToHistory({ text: this.entry.text, imageDataUrl: this.entry.imageDataUrl });
     window.dispatchEvent(new CustomEvent('pastry:close'));
   }
 
@@ -124,12 +126,12 @@ export class PinnedItem extends LitElement {
       ? html`<div class="thumbnail"><img src=${this.entry.imageDataUrl!} /></div>`
       : html`<div class="text" title=${this.entry.text}>${this.entry.text}</div>`;
     return html`
-      <div class="row ${this.active ? 'active' : ''}">
+      <div class="row ${this.active ? 'active' : ''}" @click=${this._handlePaste}>
         <div class="info">
           <div class="name">${this.entry.name}</div>
           ${preview}
         </div>
-        <div class="actions">
+        <div class="actions" @click=${(e: Event) => e.stopPropagation()}>
           <button @click=${this._handleCopy}>Copy</button>
           <button @click=${this._handlePaste}>Paste</button>
           <button class="edit" @click=${this._handleEdit}>Edit</button>
