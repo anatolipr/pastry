@@ -10,6 +10,13 @@ import { FuseV1Options, FuseVersion } from '@electron/fuses';
 const config: ForgeConfig = {
   packagerConfig: {
     asar: true,
+    appBundleId: 'com.anatoli.pastry',
+    extendInfo: {
+      NSAppleEventsUsageDescription:
+        'Pastry needs to send keystrokes to paste clipboard items into other apps.',
+      NSAccessibilityUsageDescription:
+        'Pastry needs Accessibility access to paste clipboard items into other apps.',
+    },
   },
   rebuildConfig: {},
   makers: [

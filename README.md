@@ -60,6 +60,29 @@ To package without creating an installer archive (faster, local use only):
 npm run package
 ```
 
+### macOS permissions for the standalone app
+
+The Paste action uses `osascript` to switch focus and send keystrokes, which requires macOS permissions. Because the packaged app is unsigned, macOS will silently deny these without prompting. You need to ad-hoc sign the app after packaging:
+
+```bash
+npm run package
+codesign --deep --force --sign - "out/pastry-darwin-arm64/pastry.app"
+```
+
+Then copy the app to `/Applications` and reset any previously denied permissions:
+
+```bash
+tccutil reset AppleEvents com.anatoli.pastry
+tccutil reset Accessibility com.anatoli.pastry
+```
+
+Launch the app from Finder (not from terminal), trigger **⌘⇧V**, and click Paste — macOS will prompt:
+
+1. **"pastry" wants access to control "System Events"** — click **Allow**
+2. **Accessibility access** — open System Settings and enable Pastry under **Privacy & Security → Accessibility**
+
+After granting both, Paste will work as expected.
+
 ## Keyboard shortcuts
 
 | Key | Action |

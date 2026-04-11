@@ -10,9 +10,18 @@ if (started) {
   app.quit();
 }
 
+const DEBUG = false;
+
 let mainWindow: BrowserWindow | null = null;
 let previousApp = '';
 let currentShortcut = GLOBAL_SHORTCUT;
+
+function log(msg: string): void {
+  if (!DEBUG) return;
+  const line = `${new Date().toISOString()} ${msg}\n`;
+  fs.appendFileSync(path.join(app.getPath('userData'), 'pastry-debug.log'), line);
+  console.log('[pastry]', msg);
+}
 
 const createWindow = () => {
   mainWindow = new BrowserWindow({
@@ -108,8 +117,11 @@ ipcMain.on('clipboard:paste', (_event, payload: { text?: string; imageDataUrl?: 
   const script = target
     ? `osascript -e 'tell application "System Events" to set frontmost of (first application process whose name is "${target}") to true' -e 'tell application "System Events" to keystroke "v" using command down'`
     : `osascript -e 'tell application "System Events" to keystroke "v" using command down'`;
-  exec(script, (err) => {
-    if (err) console.error('[pastry] paste failed:', err.message);
+  log(`paste triggered, previousApp=${JSON.stringify(target)}`);
+  log(`running script: ${script}`);
+  exec(script, (err, stdout, stderr) => {
+    if (err) log(`paste failed: ${err.message} | stderr: ${stderr}`);
+    else log(`paste succeeded stdout=${stdout.trim()}`);
   });
 });
 
@@ -159,12 +171,12 @@ function toggleWindow(): void {
   } else {
     exec(
       `osascript -e 'tell application "System Events" to get name of first application process whose frontmost is true'`,
-      (err, stdout) => {
+      (err, stdout, stderr) => {
         if (err) {
-          console.error('[pastry] capture frontmost failed:', err.message);
+          log(`capture frontmost failed: ${err.message} | stderr: ${stderr}`);
         } else {
           previousApp = stdout.trim();
-          console.log('[pastry] captured previousApp:', JSON.stringify(previousApp));
+          log(`captured previousApp: ${JSON.stringify(previousApp)}`);
         }
         mainWindow?.show();
         mainWindow?.focus();
