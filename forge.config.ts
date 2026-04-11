@@ -6,6 +6,7 @@ import { MakerRpm } from '@electron-forge/maker-rpm';
 import { VitePlugin } from '@electron-forge/plugin-vite';
 import { FusesPlugin } from '@electron-forge/plugin-fuses';
 import { FuseV1Options, FuseVersion } from '@electron/fuses';
+import { execSync } from 'node:child_process';
 
 const config: ForgeConfig = {
   packagerConfig: {
@@ -16,6 +17,17 @@ const config: ForgeConfig = {
         'Pastry needs to send keystrokes to paste clipboard items into other apps.',
       NSAccessibilityUsageDescription:
         'Pastry needs Accessibility access to paste clipboard items into other apps.',
+    },
+  },
+  hooks: {
+    postPackage: async (_config, options) => {
+      if (options.platform !== 'darwin') return;
+      const appPath = options.outputPaths
+        .map(p => `${p}/pastry.app`)
+        .find(p => { try { require('fs').statSync(p); return true; } catch { return false; } });
+      if (!appPath) { console.warn('[forge] postPackage: pastry.app not found, skipping codesign'); return; }
+      console.log(`[forge] ad-hoc signing ${appPath}`);
+      execSync(`codesign --deep --force --sign - "${appPath}"`, { stdio: 'inherit' });
     },
   },
   rebuildConfig: {},

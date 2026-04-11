@@ -69,6 +69,7 @@ export class SettingsDialog extends LitElement {
   @state() private _shortcutDisplay = '';
   @state() private _capturing = false;
   @state() private _error = '';
+  @state() private _showTroubleshoot = false;
 
   static styles = css`
     :host {
@@ -197,6 +198,53 @@ export class SettingsDialog extends LitElement {
     .save:hover {
       background: #88c8ff;
     }
+    .troubleshoot-section {
+      margin-top: 20px;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      padding-top: 16px;
+    }
+    .troubleshoot-btn {
+      background: transparent;
+      color: #aaa;
+      font-size: 11px;
+      padding: 4px 10px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      cursor: pointer;
+      border-radius: 5px;
+      transition: background 0.1s, color 0.1s;
+    }
+    .troubleshoot-btn:hover {
+      background: rgba(255, 255, 255, 0.06);
+      color: #ccc;
+    }
+    .troubleshoot-content {
+      margin-top: 12px;
+      font-size: 11px;
+      color: #aaa;
+      line-height: 1.6;
+    }
+    .troubleshoot-content p {
+      margin: 0 0 8px;
+    }
+    .troubleshoot-content ol {
+      margin: 0 0 10px;
+      padding-left: 18px;
+    }
+    .troubleshoot-content li {
+      margin-bottom: 4px;
+    }
+    .cmd-block {
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 4px;
+      padding: 7px 10px;
+      font-family: monospace;
+      font-size: 10px;
+      color: #c5e3ff;
+      white-space: pre;
+      margin: 6px 0 10px;
+      user-select: all;
+    }
   `;
 
   connectedCallback(): void {
@@ -301,6 +349,27 @@ export class SettingsDialog extends LitElement {
           <div class="actions">
             <button class="cancel" @click=${this._handleCancel}>Cancel</button>
             <button class="save" @click=${this._handleSave}>Save</button>
+          </div>
+
+          <div class="troubleshoot-section">
+            <button
+              class="troubleshoot-btn"
+              @click=${() => { this._showTroubleshoot = !this._showTroubleshoot; }}
+            >
+              ${this._showTroubleshoot ? 'Hide' : 'Troubleshoot Paste…'}
+            </button>
+            ${this._showTroubleshoot ? html`
+              <div class="troubleshoot-content">
+                <p>If Paste does nothing or focus doesn't switch, macOS permissions may need to be reset. Run these two commands in Terminal, then relaunch the app:</p>
+                <div class="cmd-block">tccutil reset AppleEvents com.anatoli.pastry
+tccutil reset Accessibility com.anatoli.pastry</div>
+                <p>After relaunching, trigger the shortcut and click Paste. macOS will show two prompts:</p>
+                <ol>
+                  <li><strong>"pastry" wants access to control "System Events"</strong> — click <strong>Allow</strong></li>
+                  <li><strong>Accessibility access required</strong> — open System Settings and enable Pastry under <strong>Privacy &amp; Security → Accessibility</strong></li>
+                </ol>
+              </div>
+            ` : ''}
           </div>
         </div>
       </div>
