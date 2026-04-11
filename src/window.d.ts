@@ -12,6 +12,8 @@ export interface PastryAPI {
   saveStore: (data: PastryStore) => void;
   hideWindow: () => void;
   registerShortcut: (shortcut: string) => Promise<boolean>;
+  exportPins: (data: unknown) => Promise<boolean>;
+  importPins: () => Promise<unknown>;
 }
 
 export interface PastryStore {

@@ -134,7 +134,7 @@ export class PinDialog extends LitElement {
     if (!this._name && isImage) this._name = 'Image';
 
     return html`
-      <div class="overlay" @click=${(e: MouseEvent) => { if (e.target === e.currentTarget) this._handleCancel(); }}>
+      <div class="overlay" @mousedown=${(e: MouseEvent) => { if (e.target === e.currentTarget) (e.currentTarget as HTMLElement).dataset['dismissDown'] = '1'; }} @mouseup=${(e: MouseEvent) => { const el = e.currentTarget as HTMLElement; if (e.target === el && el.dataset['dismissDown']) this._handleCancel(); delete el.dataset['dismissDown']; }}>
         <div class="dialog">
           <h3>Pin this item</h3>
           ${isImage

@@ -121,7 +121,7 @@ export class EditDialog extends LitElement {
     if (!isEditDialogOpen.get()) return html``;
     this._seed();
     return html`
-      <div class="overlay" @click=${(e: Event) => { if (e.target === e.currentTarget) this._handleCancel(); }}>
+      <div class="overlay" @mousedown=${(e: MouseEvent) => { if (e.target === e.currentTarget) (e.currentTarget as HTMLElement).dataset['dismissDown'] = '1'; }} @mouseup=${(e: MouseEvent) => { const el = e.currentTarget as HTMLElement; if (e.target === el && el.dataset['dismissDown']) this._handleCancel(); delete el.dataset['dismissDown']; }}>
         <div class="dialog">
           <h3>Edit Pinned Item</h3>
           <label>Label</label>

@@ -95,7 +95,7 @@ export class UnpinDialog extends LitElement {
     const entry = unpinTarget.get()!;
 
     return html`
-      <div class="overlay" @click=${(e: MouseEvent) => { if (e.target === e.currentTarget) this._handleCancel(); }}>
+      <div class="overlay" @mousedown=${(e: MouseEvent) => { if (e.target === e.currentTarget) (e.currentTarget as HTMLElement).dataset['dismissDown'] = '1'; }} @mouseup=${(e: MouseEvent) => { const el = e.currentTarget as HTMLElement; if (e.target === el && el.dataset['dismissDown']) this._handleCancel(); delete el.dataset['dismissDown']; }}>
         <div class="dialog">
           <h3>Remove pin?</h3>
           <p>

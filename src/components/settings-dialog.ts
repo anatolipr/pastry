@@ -245,6 +245,12 @@ export class SettingsDialog extends LitElement {
       margin: 6px 0 10px;
       user-select: all;
     }
+    .made-by {
+      margin-top: 16px;
+      font-size: 11px;
+      color: rgba(255, 255, 255, 0.25);
+      text-align: center;
+    }
   `;
 
   connectedCallback(): void {
@@ -313,7 +319,8 @@ export class SettingsDialog extends LitElement {
     return html`
       <div
         class="overlay"
-        @click=${(e: MouseEvent) => { if (e.target === e.currentTarget) this._handleCancel(); }}
+        @mousedown=${(e: MouseEvent) => { if (e.target === e.currentTarget) (e.currentTarget as HTMLElement).dataset['dismissDown'] = '1'; }}
+        @mouseup=${(e: MouseEvent) => { const el = e.currentTarget as HTMLElement; if (e.target === el && el.dataset['dismissDown']) this._handleCancel(); delete el.dataset['dismissDown']; }}
       >
         <div class="dialog">
           <h3>Settings</h3>
@@ -371,6 +378,7 @@ tccutil reset Accessibility com.anatoli.pastry</div>
               </div>
             ` : ''}
           </div>
+          <div class="made-by">made by Anatoli Radulov</div>
         </div>
       </div>
     `;

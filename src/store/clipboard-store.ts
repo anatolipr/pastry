@@ -214,6 +214,39 @@ export function clearHistory(): void {
   persistStore();
 }
 
+export interface PastryExport {
+  version: 1;
+  pins: PinnedEntry[];
+}
+
+export async function exportSelectedPins(ids: string[]): Promise<boolean> {
+  const all = pinnedItems.get();
+  const selected = all.filter((p) => ids.includes(p.id));
+  const payload: PastryExport = { version: 1, pins: selected };
+  return window.pastryAPI.exportPins(payload);
+}
+
+export async function importPins(): Promise<void> {
+  const raw = await window.pastryAPI.importPins();
+  if (!raw || typeof raw !== 'object') return;
+  const data = raw as PastryExport;
+  if (!Array.isArray(data.pins)) return;
+  const existing = pinnedItems.get();
+  const existingIds = new Set(existing.map((p) => p.id));
+  const toAdd = data.pins
+    .filter((p) => p && typeof p.id === 'string' && !existingIds.has(p.id))
+    .map((p): PinnedEntry => ({
+      id: p.id,
+      text: p.text ?? '',
+      name: p.name ?? 'Imported',
+      pinnedAt: p.pinnedAt ?? Date.now(),
+      imageDataUrl: p.imageDataUrl,
+    }));
+  if (toAdd.length === 0) return;
+  pinnedItems.set([...existing, ...toAdd]);
+  persistStore();
+}
+
 export function setActiveIndex(idx: number): void {
   const len = combinedItems.get().length;
   if (len === 0) { activeIndex.set(-1); return; }

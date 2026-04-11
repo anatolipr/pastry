@@ -1,4 +1,4 @@
-import { app, BrowserWindow, clipboard, globalShortcut, ipcMain, nativeImage } from 'electron';
+import { app, BrowserWindow, clipboard, dialog, globalShortcut, ipcMain, nativeImage } from 'electron';
 import path from 'node:path';
 import { exec } from 'node:child_process';
 import fs from 'node:fs';
@@ -101,6 +101,32 @@ ipcMain.on('store:save', (_event, data: unknown) => {
     fs.writeFileSync(getStorePath(), JSON.stringify(data), 'utf-8');
   } catch (err) {
     console.error('[pastry] store:save failed:', err);
+  }
+});
+
+ipcMain.handle('pins:export', async (_event, data: unknown) => {
+  const result = await dialog.showSaveDialog(mainWindow!, {
+    title: 'Export Pins',
+    defaultPath: 'pins.pastry',
+    filters: [{ name: 'Pastry Export', extensions: ['pastry'] }],
+  });
+  if (result.canceled || !result.filePath) return false;
+  fs.writeFileSync(result.filePath, JSON.stringify(data), 'utf-8');
+  return true;
+});
+
+ipcMain.handle('pins:import', async () => {
+  const result = await dialog.showOpenDialog(mainWindow!, {
+    title: 'Import Pins',
+    filters: [{ name: 'Pastry Export', extensions: ['pastry'] }],
+    properties: ['openFile'],
+  });
+  if (result.canceled || !result.filePaths[0]) return null;
+  try {
+    const raw = fs.readFileSync(result.filePaths[0], 'utf-8');
+    return JSON.parse(raw);
+  } catch {
+    return null;
   }
 });
 

@@ -36,6 +36,14 @@ const api: PastryAPI = {
   registerShortcut(shortcut: string): Promise<boolean> {
     return ipcRenderer.invoke('shortcut:register', shortcut);
   },
+
+  exportPins(data: unknown): Promise<boolean> {
+    return ipcRenderer.invoke('pins:export', data);
+  },
+
+  importPins(): Promise<unknown> {
+    return ipcRenderer.invoke('pins:import');
+  },
 };
 
 contextBridge.exposeInMainWorld('pastryAPI', api);

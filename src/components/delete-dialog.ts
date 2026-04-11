@@ -111,7 +111,8 @@ export class DeleteDialog extends LitElement {
 
     return html`
       <div class="overlay"
-           @click=${(e: MouseEvent) => { if (e.target === e.currentTarget) this._handleCancel(); }}
+           @mousedown=${(e: MouseEvent) => { if (e.target === e.currentTarget) (e.currentTarget as HTMLElement).dataset['dismissDown'] = '1'; }}
+           @mouseup=${(e: MouseEvent) => { const el = e.currentTarget as HTMLElement; if (e.target === el && el.dataset['dismissDown']) this._handleCancel(); delete el.dataset['dismissDown']; }}
            @keydown=${this._handleKeydown}>
         <div class="dialog">
           <h3>Delete this item?</h3>
