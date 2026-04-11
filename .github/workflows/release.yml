@@ -1,0 +1,54 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build and package
+        run: npm run make -- --platform darwin
+
+      - name: Find ZIP artifact
+        id: find_zip
+        run: |
+          ZIP=$(find out/make/zip/darwin -name "*.zip" | head -1)
+          echo "zip_path=$ZIP" >> $GITHUB_OUTPUT
+          echo "zip_name=$(basename $ZIP)" >> $GITHUB_OUTPUT
+
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ steps.find_zip.outputs.zip_path }}
+          body: |
+            ## Installation
+
+            1. Download the `.zip` below and extract it
+            2. Drag `pastry.app` to your `/Applications` folder
+            3. **First launch:** right-click `pastry.app` → **Open** (required once to bypass Gatekeeper on unsigned apps)
+            4. Grant Accessibility access when prompted: **System Settings → Privacy & Security → Accessibility**
+
+            See the [README](https://github.com/${{ github.repository }}/blob/main/README.md#installing-a-release-build) for full setup details.
+
+      - name: Delete old releases (keep last 5)
+        uses: dev-drprasad/delete-older-releases@v0.3.4
+        with:
+          keep_latest: 5
+          delete_tags: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

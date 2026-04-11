@@ -13,6 +13,35 @@ A macOS clipboard manager built with Electron, Lit.js, and avosignals.
 - Global shortcut **⌘⇧V** opens the panel from anywhere
 - Persists history, pins, and settings across restarts
 
+## Installing a release build
+
+If you've been given access to this repository, you can download a pre-built app from the [Releases](../../releases) page — no Node.js or terminal needed.
+
+1. Go to **Releases** (right sidebar on the repo page) and download the latest `.zip`
+2. Extract the zip and drag `pastry.app` to your `/Applications` folder
+3. **First launch — Gatekeeper:** because the app is not signed with an Apple developer certificate, macOS will block it with _"cannot be opened because the developer cannot be verified"_. To bypass this **once**:
+   - Right-click (or Control-click) `pastry.app` in Finder → **Open**
+   - Click **Open** in the dialog that appears
+   - You only need to do this on the very first launch
+4. Grant **Accessibility access** when prompted (required for the Paste action):
+   - Go to **System Settings → Privacy & Security → Accessibility**
+   - Enable **pastry**
+
+> **Note:** This repository is private. Only people added as collaborators can access the Releases page. If you can't reach the download link, ask to be added as a collaborator on GitHub.
+
+## Publishing a new release
+
+Releases are built and published automatically by GitHub Actions when you push a version tag:
+
+```bash
+git tag v1.0.1
+git push origin v1.0.1
+```
+
+The action will build the app, sign it ad-hoc, and upload the `.zip` to the [Releases](../../releases) page. The tag name becomes the release name, so use [semantic versioning](https://semver.org) (e.g. `v1.0.0`, `v1.1.0`, `v1.2.3`).
+
+To share the release with someone, add them as a collaborator on GitHub (**Settings → Collaborators → Add people**) and send them the Releases page link. They'll need a free GitHub account.
+
 ## Requirements
 
 - macOS
