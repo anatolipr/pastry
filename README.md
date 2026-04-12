@@ -121,3 +121,66 @@ After granting both, Paste will work as expected.
 | **Enter** | Paste selected item into previous app |
 | **⌘C** | Copy selected item to clipboard |
 | **Esc** | Close panel |
+
+## Architecture
+
+```mermaid
+graph TD
+    subgraph OS["macOS"]
+        CB[System Clipboard]
+        OSAS[osascript]
+    end
+
+    subgraph Main["Electron Main Process · src/main.ts"]
+        POLL["Clipboard Poller\n(500ms interval)"]
+        SHORT["Global Shortcut\n⌘⇧V → toggleWindow"]
+        TRAY["Tray Icon"]
+        IPC["IPC Handlers\n(store, clipboard, pins, shortcut)"]
+    end
+
+    subgraph Preload["Preload Bridge · src/preload.ts"]
+        API["window.pastryAPI\n(21 methods)"]
+    end
+
+    subgraph Renderer["Renderer Process (Lit.js)"]
+        subgraph Components["UI Components · src/components/"]
+            APP["pastry-app\n(root)"]
+            HL["history-list"]
+            PL["pinned-list"]
+            SR["search-results"]
+            CI["clipboard-item"]
+            PI["pinned-item"]
+            DLG["Dialogs\npin / edit / delete / settings"]
+        end
+
+        subgraph Store["State · src/store/clipboard-store.ts"]
+            SIG["Signals\nclipboardHistory, pinnedItems\nthemeMode, shortcut, historySize\nsearchQuery, tagFilter, activeIndex"]
+            COMP["Computed\nfilteredHistory, filteredPinned\ncombinedItems, activeItem, allTags"]
+            ACT["Actions\naddToHistory, pinItem, deleteHistoryItem\nmoveActiveIndex, persistStore (debounced 400ms)"]
+        end
+    end
+
+    subgraph FS["File System (macOS App Data)"]
+        JSON["pastry-store.json\nhistory · pinned · settings"]
+    end
+
+    CB -- "clipboard read" --> POLL
+    POLL -- "new entry" --> IPC
+    SHORT --> IPC
+    IPC --> OSAS
+    OSAS -- "paste keystroke" --> CB
+
+    IPC <-- "contextBridge" --> API
+    API <-- "IPC calls" --> ACT
+
+    SIG --> COMP
+    ACT --> SIG
+
+    APP --> HL & PL & SR & DLG
+    HL --> CI
+    PL --> PI
+    COMP -- "reactive updates" --> APP
+
+    ACT -- "saveStore" --> JSON
+    JSON -- "loadStore on startup" --> SIG
+```
