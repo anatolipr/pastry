@@ -26,6 +26,21 @@ jobs:
       - name: Build and package
         run: npm run make -- --platform darwin
 
+      - name: Generate changelog
+        id: changelog
+        run: |
+          PREV_TAG=$(git tag --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sed -n '2p')
+          if [[ -n "$PREV_TAG" ]]; then
+            COMMITS=$(git log "${PREV_TAG}..HEAD" --pretty=format:"- %s" --no-merges)
+          else
+            COMMITS=$(git log --pretty=format:"- %s" --no-merges)
+          fi
+          {
+            echo "commits<<EOF"
+            echo "$COMMITS"
+            echo "EOF"
+          } >> $GITHUB_OUTPUT
+
       - name: Find ZIP artifact
         id: find_zip
         run: |
@@ -38,6 +53,10 @@ jobs:
         with:
           files: ${{ steps.find_zip.outputs.zip_path }}
           body: |
+            ## What's changed
+
+            ${{ steps.changelog.outputs.commits }}
+
             ## Installation
 
             1. Download the `.zip` below and extract it
