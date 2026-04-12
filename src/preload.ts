@@ -6,6 +6,10 @@ const api: PastryAPI = {
     ipcRenderer.send('clipboard:write', text);
   },
 
+  writeRichClipboard(payload: { text: string; htmlContent: string }): void {
+    ipcRenderer.send('clipboard:write-rich', payload);
+  },
+
   writeImageClipboard(dataUrl: string): void {
     ipcRenderer.send('clipboard:write-image', dataUrl);
   },
@@ -15,7 +19,7 @@ const api: PastryAPI = {
   },
 
   onClipboardChange(callback) {
-    const handler = (_event: Electron.IpcRendererEvent, payload: { text: string; imageDataUrl?: string }) =>
+    const handler = (_event: Electron.IpcRendererEvent, payload: { text: string; imageDataUrl?: string; htmlContent?: string }) =>
       callback(payload);
     ipcRenderer.on('clipboard:change', handler);
     return () => ipcRenderer.removeListener('clipboard:change', handler);

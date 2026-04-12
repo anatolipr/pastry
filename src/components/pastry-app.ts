@@ -173,7 +173,7 @@ export class PastryApp extends LitElement {
       const item = activeItem.get();
       if (item) {
         e.preventDefault();
-        window.pastryAPI.pasteItem({ text: item.entry.text, imageDataUrl: item.entry.imageDataUrl });
+        window.pastryAPI.pasteItem({ text: item.entry.text, imageDataUrl: item.entry.imageDataUrl, htmlContent: item.entry.htmlContent });
       }
     } else if ((e.metaKey || e.ctrlKey) && e.key === 'c') {
       const item = activeItem.get();
@@ -182,6 +182,8 @@ export class PastryApp extends LitElement {
         e.preventDefault();
         if (item.entry.imageDataUrl) {
           window.pastryAPI.writeImageClipboard(item.entry.imageDataUrl);
+        } else if (item.entry.htmlContent) {
+          window.pastryAPI.writeRichClipboard({ text: item.entry.text, htmlContent: item.entry.htmlContent });
         } else {
           window.pastryAPI.writeClipboard(item.entry.text);
         }

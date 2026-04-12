@@ -108,6 +108,8 @@ export class ClipboardItem extends LitElement {
   private _handleCopy(): void {
     if (this.entry.imageDataUrl) {
       window.pastryAPI.writeImageClipboard(this.entry.imageDataUrl);
+    } else if (this.entry.htmlContent) {
+      window.pastryAPI.writeRichClipboard({ text: this.entry.text, htmlContent: this.entry.htmlContent });
     } else {
       window.pastryAPI.writeClipboard(this.entry.text);
     }
@@ -116,7 +118,7 @@ export class ClipboardItem extends LitElement {
   }
 
   private _handlePaste(): void {
-    window.pastryAPI.pasteItem({ text: this.entry.text, imageDataUrl: this.entry.imageDataUrl });
+    window.pastryAPI.pasteItem({ text: this.entry.text, imageDataUrl: this.entry.imageDataUrl, htmlContent: this.entry.htmlContent });
   }
 
   private _handlePin(): void {

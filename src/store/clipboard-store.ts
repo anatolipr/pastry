@@ -93,8 +93,8 @@ export const activeItem = new Computed<ActiveItem | null>(() => {
  * - Deduplicates: if the same text exists already it moves to the top.
  * - Trims the list to historySize entries.
  */
-export function addToHistory(payload: { text: string; imageDataUrl?: string }): void {
-  const { text, imageDataUrl } = payload;
+export function addToHistory(payload: { text: string; imageDataUrl?: string; htmlContent?: string }): void {
+  const { text, imageDataUrl, htmlContent } = payload;
   if (!imageDataUrl && !text.trim()) return;
   const current = clipboardHistory.get();
   // Dedup on text (for text entries) or imageDataUrl signature (for images)
@@ -106,6 +106,7 @@ export function addToHistory(payload: { text: string; imageDataUrl?: string }): 
     text,
     timestamp: Date.now(),
     imageDataUrl,
+    htmlContent,
   };
   const next = [entry, ...filtered].slice(0, historySize.get());
   clipboardHistory.set(next);

@@ -1,10 +1,12 @@
 export interface ClipboardPayload {
   text: string;
   imageDataUrl?: string;
+  htmlContent?: string;
 }
 
 export interface PastryAPI {
   writeClipboard: (text: string) => void;
+  writeRichClipboard: (payload: { text: string; htmlContent: string }) => void;
   writeImageClipboard: (dataUrl: string) => void;
   pasteItem: (payload: ClipboardPayload) => void;
   onClipboardChange: (callback: (payload: ClipboardPayload) => void) => () => void;

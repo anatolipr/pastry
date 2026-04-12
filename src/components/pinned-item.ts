@@ -101,15 +101,17 @@ export class PinnedItem extends LitElement {
   private _handleCopy(): void {
     if (this.entry.imageDataUrl) {
       window.pastryAPI.writeImageClipboard(this.entry.imageDataUrl);
+    } else if (this.entry.htmlContent) {
+      window.pastryAPI.writeRichClipboard({ text: this.entry.text, htmlContent: this.entry.htmlContent });
     } else {
       window.pastryAPI.writeClipboard(this.entry.text);
     }
-    addToHistory({ text: this.entry.text, imageDataUrl: this.entry.imageDataUrl });
+    addToHistory({ text: this.entry.text, imageDataUrl: this.entry.imageDataUrl, htmlContent: this.entry.htmlContent });
     window.dispatchEvent(new CustomEvent('pastry:close'));
   }
 
   private _handlePaste(): void {
-    window.pastryAPI.pasteItem({ text: this.entry.text, imageDataUrl: this.entry.imageDataUrl });
+    window.pastryAPI.pasteItem({ text: this.entry.text, imageDataUrl: this.entry.imageDataUrl, htmlContent: this.entry.htmlContent });
   }
 
   private _handleEdit(): void {

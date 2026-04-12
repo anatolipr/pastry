@@ -79,10 +79,12 @@ export class UnpinDialog extends LitElement {
     if (!entry) return;
     if (entry.imageDataUrl) {
       window.pastryAPI.writeImageClipboard(entry.imageDataUrl);
+    } else if (entry.htmlContent) {
+      window.pastryAPI.writeRichClipboard({ text: entry.text, htmlContent: entry.htmlContent });
     } else {
       window.pastryAPI.writeClipboard(entry.text);
     }
-    addToHistory({ text: entry.text, imageDataUrl: entry.imageDataUrl });
+    addToHistory({ text: entry.text, imageDataUrl: entry.imageDataUrl, htmlContent: entry.htmlContent });
     unpinItem(entry.id);
   }
 

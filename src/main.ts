@@ -76,6 +76,12 @@ ipcMain.on('clipboard:write', (_event, text: string) => {
   }
 });
 
+ipcMain.on('clipboard:write-rich', (_event, payload: { text: string; htmlContent: string }) => {
+  lastClipboardText = payload.text;
+  lastImageSignature = '';
+  clipboard.write({ text: payload.text, html: payload.htmlContent });
+});
+
 ipcMain.on('clipboard:history-deleted', (_event, payload: { text?: string; imageDataUrl?: string }) => {
   if (payload.imageDataUrl) {
     const sig = `${payload.imageDataUrl.length}:${payload.imageDataUrl.slice(0, 40)}`;
@@ -143,9 +149,11 @@ ipcMain.handle('pins:import', async () => {
   }
 });
 
-ipcMain.on('clipboard:paste', (_event, payload: { text?: string; imageDataUrl?: string }) => {
+ipcMain.on('clipboard:paste', (_event, payload: { text?: string; imageDataUrl?: string; htmlContent?: string }) => {
   if (payload.imageDataUrl) {
     clipboard.writeImage(nativeImage.createFromDataURL(payload.imageDataUrl));
+  } else if (payload.htmlContent) {
+    clipboard.write({ text: payload.text ?? '', html: payload.htmlContent });
   } else {
     clipboard.writeText(payload.text ?? '');
   }
@@ -190,7 +198,11 @@ function startClipboardWatcher(): void {
     if (current !== lastClipboardText) {
       lastClipboardText = current;
       lastImageSignature = '';
-      mainWindow?.webContents.send('clipboard:change', { text: current, imageDataUrl: undefined });
+      const html = clipboard.readHTML();
+      // Only capture HTML if it actually adds information beyond plain text
+      // (i.e. it contains markup tags, not just a plain-text wrapper).
+      const htmlContent = html && /<[a-z]/i.test(html) ? html : undefined;
+      mainWindow?.webContents.send('clipboard:change', { text: current, imageDataUrl: undefined, htmlContent });
     }
   }, POLL_INTERVAL_MS);
 }
