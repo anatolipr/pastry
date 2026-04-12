@@ -69,7 +69,20 @@ let lastImageSignature = ''; // length+prefix to detect changes without full com
 ipcMain.on('clipboard:write', (_event, text: string) => {
   lastClipboardText = text;
   lastImageSignature = '';
-  clipboard.writeText(text);
+  if (text === '') {
+    clipboard.clear();
+  } else {
+    clipboard.writeText(text);
+  }
+});
+
+ipcMain.on('clipboard:history-deleted', (_event, payload: { text?: string; imageDataUrl?: string }) => {
+  if (payload.imageDataUrl) {
+    const sig = `${payload.imageDataUrl.length}:${payload.imageDataUrl.slice(0, 40)}`;
+    if (sig === lastImageSignature) lastImageSignature = '';
+  } else if (payload.text !== undefined && payload.text === lastClipboardText) {
+    lastClipboardText = '';
+  }
 });
 
 ipcMain.on('clipboard:write-image', (_event, dataUrl: string) => {

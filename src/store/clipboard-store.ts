@@ -167,8 +167,21 @@ export function setDeleteTarget(entry: ClipboardEntry | null): void {
 }
 
 export function deleteHistoryItem(id: string): void {
+  const history = clipboardHistory.get();
+  const entry = history.find((e) => e.id === id);
+  const isCurrentClipboard = history[0]?.id === id;
   clipboardHistory.update((prev) => prev.filter((e) => e.id !== id));
   deleteTarget.set(null);
+  if (entry) {
+    window.pastryAPI.notifyHistoryDeleted({ text: entry.text ?? '', imageDataUrl: entry.imageDataUrl });
+  }
+  // If we deleted the item that is currently in the OS clipboard, clear the
+  // clipboard so the watcher doesn't immediately re-add it.
+  // If we deleted the item currently in the OS clipboard, clear the clipboard
+  // so the watcher doesn't immediately re-add it on the next poll.
+  if (isCurrentClipboard) {
+    window.pastryAPI.writeClipboard('');
+  }
   persistStore();
 }
 

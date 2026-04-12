@@ -14,6 +14,7 @@ export interface PastryAPI {
   registerShortcut: (shortcut: string) => Promise<boolean>;
   exportPins: (data: unknown) => Promise<boolean>;
   importPins: () => Promise<unknown>;
+  notifyHistoryDeleted: (payload: ClipboardPayload) => void;
 }
 
 export interface PastryStore {

@@ -44,6 +44,10 @@ const api: PastryAPI = {
   importPins(): Promise<unknown> {
     return ipcRenderer.invoke('pins:import');
   },
+
+  notifyHistoryDeleted(payload): void {
+    ipcRenderer.send('clipboard:history-deleted', payload);
+  },
 };
 
 contextBridge.exposeInMainWorld('pastryAPI', api);

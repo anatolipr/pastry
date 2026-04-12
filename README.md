@@ -19,9 +19,9 @@ If you've been given access to this repository, you can download a pre-built app
 
 1. Go to **Releases** (right sidebar on the repo page) and download the latest `.zip`
 2. Extract the zip and drag `pastry.app` to your `/Applications` folder
-3. **First launch — Gatekeeper:** because the app is not signed with an Apple developer certificate, macOS will block it with _"cannot be opened because the developer cannot be verified"_. To bypass this **once**:
-   - Right-click (or Control-click) `pastry.app` in Finder → **Open**
-   - Click **Open** in the dialog that appears
+3. **First launch — Gatekeeper:** because the app is not signed with an Apple developer certificate, macOS will block it with _"cannot be opened because the developer cannot be verified"_. To bypass this **once**, use either method:
+   - **Option A (Finder):** Right-click (or Control-click) `pastry.app` → **Open** → click **Open** in the dialog
+   - **Option B (System Settings):** Try to open the app normally; when blocked, go to **System Settings → Privacy & Security**, scroll down to the _"pastry was blocked"_ message, and click **Open Anyway**
    - You only need to do this on the very first launch
 4. Grant **Accessibility access** when prompted (required for the Paste action):
    - Go to **System Settings → Privacy & Security → Accessibility**

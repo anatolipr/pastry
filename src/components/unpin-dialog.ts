@@ -1,7 +1,7 @@
 import { LitElement, html, css } from 'lit';
 import { customElement } from 'lit/decorators.js';
 import { SignalWatcher } from 'avosignals';
-import { unpinTarget, isUnpinDialogOpen, unpinItem, setUnpinTarget } from '../store/clipboard-store';
+import { unpinTarget, isUnpinDialogOpen, unpinItem, setUnpinTarget, addToHistory } from '../store/clipboard-store';
 
 @customElement('unpin-dialog')
 export class UnpinDialog extends LitElement {
@@ -82,6 +82,7 @@ export class UnpinDialog extends LitElement {
     } else {
       window.pastryAPI.writeClipboard(entry.text);
     }
+    addToHistory({ text: entry.text, imageDataUrl: entry.imageDataUrl });
     unpinItem(entry.id);
   }
 
