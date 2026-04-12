@@ -11,6 +11,7 @@ import { execSync } from 'node:child_process';
 const config: ForgeConfig = {
   packagerConfig: {
     asar: true,
+    icon: 'assets/AppIcon',
     appBundleId: 'com.anatoli.pastry',
     extendInfo: {
       NSAppleEventsUsageDescription:

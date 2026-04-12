@@ -1,4 +1,4 @@
-import { app, BrowserWindow, clipboard, dialog, globalShortcut, ipcMain, nativeImage } from 'electron';
+import { app, BrowserWindow, clipboard, dialog, globalShortcut, ipcMain, nativeImage, Tray } from 'electron';
 import path from 'node:path';
 import { exec } from 'node:child_process';
 import fs from 'node:fs';
@@ -13,8 +13,96 @@ if (started) {
 const DEBUG = false;
 
 let mainWindow: BrowserWindow | null = null;
+let tray: Tray | null = null;
 let previousApp = '';
 let currentShortcut = GLOBAL_SHORTCUT;
+
+function drawScissors(size: number, rgb: [number, number, number] = [0, 0, 0]): Buffer {
+  const buf = Buffer.alloc(size * size * 4, 0);
+  const S = (v: number) => (v / 22) * size;
+
+  function setPixel(x: number, y: number): void {
+    x = Math.round(x); y = Math.round(y);
+    if (x < 0 || x >= size || y < 0 || y >= size) return;
+    const i = (y * size + x) * 4;
+    buf[i] = rgb[0]; buf[i + 1] = rgb[1]; buf[i + 2] = rgb[2]; buf[i + 3] = 255;
+  }
+
+  function drawRing(cx: number, cy: number, innerR: number, outerR: number): void {
+    for (let py = cy - outerR - 1; py <= cy + outerR + 1; py++) {
+      for (let px = cx - outerR - 1; px <= cx + outerR + 1; px++) {
+        const d2 = (px - cx) ** 2 + (py - cy) ** 2;
+        if (d2 >= innerR ** 2 && d2 <= outerR ** 2) setPixel(px, py);
+      }
+    }
+  }
+
+  function fillCircle(cx: number, cy: number, radius: number): void {
+    for (let py = cy - radius; py <= cy + radius; py++) {
+      for (let px = cx - radius; px <= cx + radius; px++) {
+        if ((px - cx) ** 2 + (py - cy) ** 2 <= radius ** 2) setPixel(px, py);
+      }
+    }
+  }
+
+  function drawThickLine(x0: number, y0: number, x1: number, y1: number, thick: number): void {
+    const dx = x1 - x0, dy = y1 - y0;
+    const len = Math.sqrt(dx * dx + dy * dy);
+    const steps = Math.ceil(len * 2);
+    for (let i = 0; i <= steps; i++) {
+      const t = i / steps;
+      const cx = x0 + dx * t, cy = y0 + dy * t;
+      const half = thick / 2;
+      for (let ox = -half; ox <= half; ox += 0.5) {
+        for (let oy = -half; oy <= half; oy += 0.5) {
+          if (ox * ox + oy * oy <= half * half) setPixel(cx + ox, cy + oy);
+        }
+      }
+    }
+  }
+
+  const ringCx1 = S(5), ringCy1 = S(5);
+  const ringCx2 = S(5), ringCy2 = S(17);
+  const pivot = { x: S(10), y: S(11) };
+  const ringInner = S(1.6), ringOuter = S(3.2);
+  const stemThick = S(1.4);
+
+  // Hollow handle rings
+  drawRing(ringCx1, ringCy1, ringInner, ringOuter);
+  drawRing(ringCx2, ringCy2, ringInner, ringOuter);
+
+  // Stems: start from ring edge (not center) toward pivot
+  function stemStart(ringCx: number, ringCy: number): { x: number; y: number } {
+    const dx = pivot.x - ringCx, dy = pivot.y - ringCy;
+    const len = Math.sqrt(dx * dx + dy * dy);
+    return { x: ringCx + (dx / len) * ringOuter, y: ringCy + (dy / len) * ringOuter };
+  }
+  const s1 = stemStart(ringCx1, ringCy1);
+  const s2 = stemStart(ringCx2, ringCy2);
+  drawThickLine(s1.x, s1.y, pivot.x, pivot.y, stemThick);
+  drawThickLine(s2.x, s2.y, pivot.x, pivot.y, stemThick);
+
+  // Blades
+  drawThickLine(pivot.x, pivot.y, S(20), S(7), S(0.9));
+  drawThickLine(pivot.x, pivot.y, S(20), S(15), S(0.9));
+
+  // Pivot dot
+  fillCircle(pivot.x, pivot.y, S(1.2));
+
+  return buf;
+}
+
+function createTrayIcon(): Electron.NativeImage {
+  const size = 44; // 22pt @2x
+  const img = nativeImage.createFromBuffer(drawScissors(size), { width: size, height: size, scaleFactor: 2.0 });
+  img.setTemplateImage(true);
+  return img;
+}
+
+function createDockIcon(): Electron.NativeImage {
+  const size = 512;
+  return nativeImage.createFromBuffer(drawScissors(size, [255, 255, 255]), { width: size, height: size });
+}
 
 function log(msg: string): void {
   if (!DEBUG) return;
@@ -273,6 +361,13 @@ app.on('ready', () => {
   createWindow();
   startClipboardWatcher();
   globalShortcut.register(currentShortcut, toggleWindow);
+
+  tray = new Tray(createTrayIcon());
+  tray.setToolTip('Pastry');
+  tray.on('click', toggleWindow);
+
+  app.dock?.setIcon(createDockIcon());
+  app.setName('Pastry');
 });
 
 app.on('will-quit', () => {
