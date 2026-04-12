@@ -5,10 +5,83 @@
     <title>Pastry</title>
     <style>
       *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+      :root, [data-theme="dark"] {
+        --bg-main: #1e1e22;
+        --bg-titlebar: #18181c;
+        --bg-dialog: #2a2a2e;
+        --bg-input: rgba(255, 255, 255, 0.07);
+        --bg-input-focus: rgba(255, 255, 255, 0.09);
+        --bg-hover: rgba(255, 255, 255, 0.08);
+        --bg-active-history: rgba(105, 180, 255, 0.15);
+        --bg-active-pinned: rgba(240, 168, 64, 0.15);
+        --text-primary: #e0e0e0;
+        --text-secondary: #aaa;
+        --text-muted: #888;
+        --text-hint: #777;
+        --border-subtle: rgba(255, 255, 255, 0.06);
+        --border-soft: rgba(255, 255, 255, 0.08);
+        --border-input: rgba(255, 255, 255, 0.14);
+        --border-input-strong: rgba(255, 255, 255, 0.15);
+        --border-dialog: rgba(255, 255, 255, 0.12);
+        --border-focus: rgba(105, 180, 255, 0.5);
+        --divider: rgba(255, 255, 255, 0.07);
+        --accent-history: #69b4ff;
+        --accent-history-bg: rgba(105, 180, 255, 0.08);
+        --accent-pinned: #f0a840;
+        --accent-danger: #e05a5a;
+        --save-btn-bg: #69b4ff;
+        --save-btn-color: #1a1a22;
+        --save-btn-hover: #88c8ff;
+        --overlay-bg: rgba(0, 0, 0, 0.6);
+        --cmd-block-bg: rgba(0, 0, 0, 0.3);
+        --cmd-block-border: rgba(255, 255, 255, 0.08);
+        --cmd-block-color: #c5e3ff;
+        --made-by-color: rgba(255, 255, 255, 0.25);
+        --theme-pill-active-bg: rgba(255, 255, 255, 0.12);
+        --theme-pill-active-border: rgba(255, 255, 255, 0.2);
+      }
+
+      [data-theme="light"] {
+        --bg-main: #f2f2f4;
+        --bg-titlebar: #e8e8ec;
+        --bg-dialog: #ffffff;
+        --bg-input: rgba(0, 0, 0, 0.05);
+        --bg-input-focus: rgba(0, 0, 0, 0.07);
+        --bg-hover: rgba(0, 0, 0, 0.06);
+        --bg-active-history: rgba(59, 130, 246, 0.12);
+        --bg-active-pinned: rgba(217, 119, 6, 0.12);
+        --text-primary: #1a1a22;
+        --text-secondary: #555;
+        --text-muted: #777;
+        --text-hint: #999;
+        --border-subtle: rgba(0, 0, 0, 0.07);
+        --border-soft: rgba(0, 0, 0, 0.09);
+        --border-input: rgba(0, 0, 0, 0.18);
+        --border-input-strong: rgba(0, 0, 0, 0.2);
+        --border-dialog: rgba(0, 0, 0, 0.12);
+        --border-focus: rgba(59, 130, 246, 0.5);
+        --divider: rgba(0, 0, 0, 0.08);
+        --accent-history: #2563eb;
+        --accent-history-bg: rgba(59, 130, 246, 0.08);
+        --accent-pinned: #d97706;
+        --accent-danger: #dc2626;
+        --save-btn-bg: #2563eb;
+        --save-btn-color: #ffffff;
+        --save-btn-hover: #1d4ed8;
+        --overlay-bg: rgba(0, 0, 0, 0.35);
+        --cmd-block-bg: rgba(0, 0, 0, 0.05);
+        --cmd-block-border: rgba(0, 0, 0, 0.1);
+        --cmd-block-color: #1e40af;
+        --made-by-color: rgba(0, 0, 0, 0.25);
+        --theme-pill-active-bg: rgba(0, 0, 0, 0.08);
+        --theme-pill-active-border: rgba(0, 0, 0, 0.18);
+      }
+
       html, body {
         height: 100%;
         overflow: hidden;
-        background: #1e1e22;
+        background: var(--bg-main);
       }
       pastry-app {
         display: flex;

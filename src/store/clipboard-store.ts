@@ -19,6 +19,9 @@ export const tagFilter = new Signal<string[]>([], 'tagFilter');
 export const activeIndex = new Signal<number>(-1, 'activeIndex');
 export const isSettingsOpen = new Signal<boolean>(false, 'isSettingsOpen');
 
+export type ThemeMode = 'dark' | 'light' | 'auto';
+export const themeMode = new Signal<ThemeMode>('auto', 'themeMode');
+
 /** The entry currently being considered for pinning (drives pin-dialog). */
 export const pinTarget = new Signal<ClipboardEntry | null>(null, 'pinTarget');
 
@@ -154,6 +157,16 @@ export function pinItem(entry: ClipboardEntry, name: string, tags: string[] = []
 export function unpinItem(id: string): void {
   pinnedItems.update((prev) => prev.filter((e) => e.id !== id));
   unpinTarget.set(null);
+  // Remove any active tag filters that no longer exist in remaining pins
+  const remainingTags = new Set<string>();
+  for (const e of pinnedItems.get()) {
+    for (const t of (e.tags ?? [])) remainingTags.add(t);
+  }
+  const currentFilter = tagFilter.get();
+  const validFilter = currentFilter.filter((t) => remainingTags.has(t));
+  if (validFilter.length !== currentFilter.length) {
+    tagFilter.set(validFilter);
+  }
   persistStore();
 }
 
@@ -233,6 +246,11 @@ export function copyHistoryItemToTop(id: string): void {
     };
     return [fresh, ...prev].slice(0, historySize.get());
   });
+  persistStore();
+}
+
+export function setThemeMode(mode: ThemeMode): void {
+  themeMode.set(mode);
   persistStore();
 }
 
@@ -383,6 +401,7 @@ export function persistStore(): void {
       pinned: pinnedItems.get(),
       historySize: historySize.get(),
       shortcut: shortcut.get(),
+      themeMode: themeMode.get(),
     });
   }, 400);
 }
@@ -395,5 +414,6 @@ export async function loadPersistedStore(): Promise<void> {
   if (Array.isArray(data.pinned)) pinnedItems.set(data.pinned);
   if (typeof data.historySize === 'number') historySize.set(data.historySize);
   if (typeof data.shortcut === 'string' && data.shortcut) shortcut.set(data.shortcut);
+  if (data.themeMode === 'dark' || data.themeMode === 'light' || data.themeMode === 'auto') themeMode.set(data.themeMode);
 }
 

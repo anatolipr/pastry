@@ -21,11 +21,11 @@ export class SearchResults extends LitElement {
       flex: 1;
       overflow-y: auto;
       scrollbar-width: thin;
-      scrollbar-color: rgba(255,255,255,0.1) transparent;
+      scrollbar-color: var(--divider) transparent;
     }
     .empty {
       font-size: 12px;
-      color: #888;
+      color: var(--text-muted);
       padding: 24px 10px;
       text-align: center;
     }
@@ -35,9 +35,9 @@ export class SearchResults extends LitElement {
       font-weight: 700;
       letter-spacing: 0.06em;
       text-transform: uppercase;
-      background: rgba(240,168,64,0.18);
-      color: #f0a840;
-      border: 1px solid rgba(240,168,64,0.3);
+      background: var(--bg-active-pinned);
+      color: var(--accent-pinned);
+      border: 1px solid var(--accent-pinned);
       border-radius: 3px;
       padding: 1px 5px;
       margin-left: 6px;

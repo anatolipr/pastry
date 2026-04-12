@@ -25,25 +25,25 @@ export class PastryApp extends LitElement {
       display: flex;
       flex-direction: column;
       height: 100vh;
-      background: #1e1e22;
-      color: #e0e0e0;
+      background: var(--bg-main);
+      color: var(--text-primary);
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
       user-select: none;
     }
     .titlebar {
       -webkit-app-region: drag;
       height: 28px;
-      background: #18181c;
+      background: var(--bg-titlebar);
       flex-shrink: 0;
       display: flex;
       align-items: center;
       padding: 0 12px;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      border-bottom: 1px solid var(--border-subtle);
     }
     .titlebar-text {
       font-size: 12px;
       font-weight: 600;
-      color: #aaa;
+      color: var(--text-secondary);
       letter-spacing: 0.04em;
     }
     .settings-btn {
@@ -51,7 +51,7 @@ export class PastryApp extends LitElement {
       margin-left: auto;
       background: transparent;
       border: none;
-      color: #888;
+      color: var(--text-muted);
       cursor: pointer;
       font-size: 14px;
       line-height: 1;
@@ -60,29 +60,29 @@ export class PastryApp extends LitElement {
       transition: color 0.1s, background 0.1s;
     }
     .settings-btn:hover {
-      color: #ccc;
-      background: rgba(255, 255, 255, 0.08);
+      color: var(--text-primary);
+      background: var(--bg-hover);
     }
     .search-bar {
       padding: 8px 12px 6px;
       flex-shrink: 0;
-      background: #1e1e22;
-      border-bottom: 1px solid rgba(255,255,255,0.06);
+      background: var(--bg-main);
+      border-bottom: 1px solid var(--border-subtle);
     }
     .search-bar input {
       width: 100%;
       box-sizing: border-box;
-      background: rgba(255,255,255,0.07);
-      border: 1px solid rgba(255,255,255,0.14);
+      background: var(--bg-input);
+      border: 1px solid var(--border-input);
       border-radius: 6px;
-      color: #e0e0e0;
+      color: var(--text-primary);
       font-size: 13px;
       padding: 6px 10px;
       outline: none;
     }
     .search-bar input:focus {
-      border-color: rgba(105,180,255,0.5);
-      background: rgba(255,255,255,0.09);
+      border-color: var(--border-focus);
+      background: var(--bg-input-focus);
     }
     .panels {
       display: flex;
@@ -103,12 +103,12 @@ export class PastryApp extends LitElement {
     }
     .divider {
       width: 1px;
-      background: rgba(255, 255, 255, 0.07);
+      background: var(--divider);
       flex-shrink: 0;
     }
     .hint {
       font-size: 10px;
-      color: #777;
+      color: var(--text-hint);
       padding: 3px 12px 5px;
       flex-shrink: 0;
       letter-spacing: 0.02em;

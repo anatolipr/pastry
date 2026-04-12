@@ -24,6 +24,7 @@ export interface PastryStore {
   pinned: import('./shared-types').PinnedEntry[];
   historySize: number;
   shortcut?: string;
+  themeMode?: string;
 }
 
 declare global {

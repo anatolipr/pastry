@@ -17,66 +17,66 @@ export class EditDialog extends LitElement {
   static styles = css`
     :host { display: contents; }
     .overlay {
-      position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+      position: fixed; inset: 0; background: var(--overlay-bg);
       display: flex; align-items: center; justify-content: center; z-index: 100;
     }
     .dialog {
-      background: #2a2a2e; border: 1px solid rgba(255,255,255,0.12);
+      background: var(--bg-dialog); border: 1px solid var(--border-dialog);
       border-radius: 10px; padding: 20px 24px; width: 360px;
       box-shadow: 0 8px 32px rgba(0,0,0,0.5);
     }
-    h3 { margin: 0 0 16px; font-size: 14px; color: #69b4ff; }
-    label { display: block; font-size: 12px; color: #aaa; margin-bottom: 5px; }
+    h3 { margin: 0 0 16px; font-size: 14px; color: var(--accent-history); }
+    label { display: block; font-size: 12px; color: var(--text-secondary); margin-bottom: 5px; }
     input, textarea {
       width: 100%; box-sizing: border-box;
-      background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.15);
-      border-radius: 5px; color: #e0e0e0; font-size: 13px;
+      background: var(--bg-input); border: 1px solid var(--border-input-strong);
+      border-radius: 5px; color: var(--text-primary); font-size: 13px;
       padding: 7px 10px; outline: none; margin-bottom: 14px;
     }
-    input:focus, textarea:focus { border-color: #69b4ff; }
+    input:focus, textarea:focus { border-color: var(--accent-history); }
     textarea { resize: vertical; min-height: 72px; font-family: inherit; }
     .actions { display: flex; justify-content: flex-end; gap: 8px; }
     button {
       border-radius: 5px; cursor: pointer; font-size: 12px;
-      padding: 6px 14px; border: 1px solid rgba(255,255,255,0.15); transition: background 0.1s;
+      padding: 6px 14px; border: 1px solid var(--border-input-strong); transition: background 0.1s;
     }
-    .cancel { background: transparent; color: #aaa; }
-    .cancel:hover { background: rgba(255,255,255,0.08); }
-    .confirm { background: #69b4ff; color: #1a1a1e; border-color: #69b4ff; font-weight: 600; }
-    .confirm:hover { background: #8acaff; }
+    .cancel { background: transparent; color: var(--text-secondary); }
+    .cancel:hover { background: var(--bg-hover); }
+    .confirm { background: var(--save-btn-bg); color: var(--save-btn-color); border-color: var(--save-btn-bg); font-weight: 600; }
+    .confirm:hover { background: var(--save-btn-hover); }
     .tag-field {
       display: flex; flex-wrap: wrap; align-items: center; gap: 5px;
-      background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.15);
+      background: var(--bg-input); border: 1px solid var(--border-input-strong);
       border-radius: 5px; padding: 5px 8px; min-height: 34px;
       cursor: text; margin-bottom: 14px; position: relative;
     }
-    .tag-field:focus-within { border-color: #69b4ff; }
+    .tag-field:focus-within { border-color: var(--accent-history); }
     .pill {
       display: inline-flex; align-items: center; gap: 4px;
-      background: rgba(105,180,255,0.18); border: 1px solid rgba(105,180,255,0.35);
-      border-radius: 12px; color: #69b4ff; font-size: 11px; font-weight: 600;
+      background: var(--accent-history-bg); border: 1px solid var(--accent-history);
+      border-radius: 12px; color: var(--accent-history); font-size: 11px; font-weight: 600;
       padding: 2px 8px 2px 10px; white-space: nowrap;
     }
     .pill-x {
-      background: none; border: none; color: #69b4ff; cursor: pointer;
+      background: none; border: none; color: var(--accent-history); cursor: pointer;
       font-size: 13px; line-height: 1; padding: 0 0 0 2px; opacity: 0.7;
     }
     .pill-x:hover { opacity: 1; }
     .tag-input {
       flex: 1; min-width: 80px; background: transparent; border: none;
-      color: #e0e0e0; font-size: 13px; outline: none; padding: 2px;
+      color: var(--text-primary); font-size: 13px; outline: none; padding: 2px;
       font-family: inherit; margin-bottom: 0;
     }
     .suggestions {
       position: absolute; top: calc(100% + 4px); left: 0; right: 0;
-      background: #2a2a2e; border: 1px solid rgba(255,255,255,0.18);
+      background: var(--bg-dialog); border: 1px solid var(--border-input-strong);
       border-radius: 6px; box-shadow: 0 6px 20px rgba(0,0,0,0.5);
       z-index: 200; overflow: hidden;
     }
     .suggestion {
-      padding: 6px 12px; font-size: 12px; color: #ccc; cursor: pointer;
+      padding: 6px 12px; font-size: 12px; color: var(--text-secondary); cursor: pointer;
     }
-    .suggestion:hover { background: rgba(105,180,255,0.15); color: #fff; }
+    .suggestion:hover { background: var(--bg-active-history); color: var(--text-primary); }
   `;
 
   private _seed(): void {

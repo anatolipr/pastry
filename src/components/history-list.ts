@@ -24,7 +24,7 @@ export class HistoryList extends LitElement {
       font-weight: 700;
       letter-spacing: 0.08em;
       text-transform: uppercase;
-      color: #888;
+      color: var(--text-muted);
       padding: 0 10px 6px;
       flex-shrink: 0;
     }
@@ -37,9 +37,9 @@ export class HistoryList extends LitElement {
     .clear-btn {
       margin-left: auto;
       background: transparent;
-      border: 1px solid rgba(224,90,90,0.35);
+      border: 1px solid var(--accent-danger);
       border-radius: 4px;
-      color: #e05a5a;
+      color: var(--accent-danger);
       cursor: pointer;
       font-size: 10px;
       padding: 3px 7px;
@@ -47,17 +47,17 @@ export class HistoryList extends LitElement {
       white-space: nowrap;
     }
     .clear-btn:hover {
-      background: rgba(224,90,90,0.15);
+      background: var(--bg-active-history);
     }
     .list {
       flex: 1;
       overflow-y: auto;
       scrollbar-width: thin;
-      scrollbar-color: rgba(255,255,255,0.1) transparent;
+      scrollbar-color: var(--divider) transparent;
     }
     .empty {
       font-size: 12px;
-      color: #888;
+      color: var(--text-muted);
       padding: 16px 10px;
       text-align: center;
     }

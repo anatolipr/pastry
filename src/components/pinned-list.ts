@@ -29,7 +29,7 @@ export class PinnedList extends LitElement {
       font-weight: 700;
       letter-spacing: 0.08em;
       text-transform: uppercase;
-      color: #888;
+      color: var(--text-muted);
       flex: 1;
     }
     .btn {
@@ -45,12 +45,12 @@ export class PinnedList extends LitElement {
     .btn:hover { opacity: 0.8; }
     .btn-ghost {
       background: transparent;
-      color: #888;
+      color: var(--text-muted);
     }
-    .btn-ghost:hover { color: #ccc; opacity: 1; }
+    .btn-ghost:hover { color: var(--text-primary); opacity: 1; }
     .btn-primary {
-      background: #4a9eff;
-      color: #fff;
+      background: var(--accent-history);
+      color: var(--save-btn-color);
     }
     .btn-primary:disabled {
       opacity: 0.4;
@@ -58,7 +58,7 @@ export class PinnedList extends LitElement {
     }
     .btn-import {
       background: transparent;
-      color: #888;
+      color: var(--text-muted);
       font-size: 11px;
       font-weight: 600;
       border: none;
@@ -67,17 +67,17 @@ export class PinnedList extends LitElement {
       cursor: pointer;
       line-height: 1.4;
     }
-    .btn-import:hover { color: #ccc; }
+    .btn-import:hover { color: var(--text-primary); }
     .select-all-row {
       display: flex;
       align-items: center;
       gap: 8px;
       padding: 0 10px 6px;
       font-size: 12px;
-      color: #aaa;
+      color: var(--text-secondary);
     }
     .select-all-row input[type="checkbox"] {
-      accent-color: #4a9eff;
+      accent-color: var(--accent-history);
       width: 14px;
       height: 14px;
       cursor: pointer;
@@ -90,11 +90,11 @@ export class PinnedList extends LitElement {
       flex: 1;
       overflow-y: auto;
       scrollbar-width: thin;
-      scrollbar-color: rgba(255,255,255,0.1) transparent;
+      scrollbar-color: var(--divider) transparent;
     }
     .empty {
       font-size: 12px;
-      color: #888;
+      color: var(--text-muted);
       padding: 16px 10px;
       text-align: center;
     }
@@ -105,7 +105,7 @@ export class PinnedList extends LitElement {
       padding-left: 10px;
     }
     .item-row input[type="checkbox"] {
-      accent-color: #4a9eff;
+      accent-color: var(--accent-history);
       width: 14px;
       height: 14px;
       cursor: pointer;
@@ -127,7 +127,7 @@ export class PinnedList extends LitElement {
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.07em;
-      color: #666;
+      color: var(--text-hint);
       margin-right: 2px;
     }
     .tag-chip {
@@ -136,20 +136,18 @@ export class PinnedList extends LitElement {
       border-radius: 12px;
       padding: 2px 9px;
       cursor: pointer;
-      border: 1px solid rgba(105, 180, 255, 0.25);
+      border: 1px solid var(--accent-history);
       background: transparent;
-      color: #888;
+      color: var(--text-muted);
       transition: background 0.1s, color 0.1s, border-color 0.1s;
       line-height: 1.4;
     }
     .tag-chip:hover {
-      color: #69b4ff;
-      border-color: rgba(105, 180, 255, 0.5);
+      color: var(--accent-history);
     }
     .tag-chip.active {
-      background: rgba(105, 180, 255, 0.18);
-      border-color: rgba(105, 180, 255, 0.5);
-      color: #69b4ff;
+      background: var(--accent-history-bg);
+      color: var(--accent-history);
     }
   `;
 

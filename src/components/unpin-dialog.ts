@@ -14,15 +14,15 @@ export class UnpinDialog extends LitElement {
     .overlay {
       position: fixed;
       inset: 0;
-      background: rgba(0, 0, 0, 0.6);
+      background: var(--overlay-bg);
       display: flex;
       align-items: center;
       justify-content: center;
       z-index: 100;
     }
     .dialog {
-      background: #2a2a2e;
-      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: var(--bg-dialog);
+      border: 1px solid var(--border-dialog);
       border-radius: 10px;
       padding: 20px 24px;
       width: 300px;
@@ -31,16 +31,16 @@ export class UnpinDialog extends LitElement {
     h3 {
       margin: 0 0 10px;
       font-size: 14px;
-      color: #e05a5a;
+      color: var(--accent-danger);
     }
     p {
       font-size: 12px;
-      color: #aaa;
+      color: var(--text-secondary);
       margin: 0 0 18px;
       line-height: 1.5;
     }
     .name {
-      color: #e0e0e0;
+      color: var(--text-primary);
       font-weight: 600;
     }
     .actions {
@@ -53,24 +53,24 @@ export class UnpinDialog extends LitElement {
       cursor: pointer;
       font-size: 12px;
       padding: 6px 14px;
-      border: 1px solid rgba(255, 255, 255, 0.15);
+      border: 1px solid var(--border-input-strong);
       transition: background 0.1s;
     }
     .cancel {
       background: transparent;
-      color: #aaa;
+      color: var(--text-secondary);
     }
     .cancel:hover {
-      background: rgba(255, 255, 255, 0.08);
+      background: var(--bg-hover);
     }
     .confirm {
-      background: #e05a5a;
+      background: var(--accent-danger);
       color: #fff;
-      border-color: #e05a5a;
+      border-color: var(--accent-danger);
       font-weight: 600;
     }
     .confirm:hover {
-      background: #ea7070;
+      opacity: 0.85;
     }
   `;
 

@@ -25,8 +25,8 @@ export class TagsInput extends LitElement {
       flex-wrap: wrap;
       align-items: center;
       gap: 5px;
-      background: rgba(255, 255, 255, 0.07);
-      border: 1px solid rgba(255, 255, 255, 0.15);
+      background: var(--bg-input);
+      border: 1px solid var(--border-input-strong);
       border-radius: 5px;
       padding: 5px 8px;
       cursor: text;
@@ -34,16 +34,16 @@ export class TagsInput extends LitElement {
       position: relative;
     }
     .container:focus-within {
-      border-color: #69b4ff;
+      border-color: var(--accent-history);
     }
     .pill {
       display: inline-flex;
       align-items: center;
       gap: 4px;
-      background: rgba(105, 180, 255, 0.18);
-      border: 1px solid rgba(105, 180, 255, 0.35);
+      background: var(--accent-history-bg);
+      border: 1px solid var(--accent-history);
       border-radius: 12px;
-      color: #69b4ff;
+      color: var(--accent-history);
       font-size: 11px;
       font-weight: 600;
       padding: 2px 8px 2px 10px;
@@ -52,7 +52,7 @@ export class TagsInput extends LitElement {
     .pill-remove {
       background: none;
       border: none;
-      color: #69b4ff;
+      color: var(--accent-history);
       cursor: pointer;
       font-size: 13px;
       line-height: 1;
@@ -69,7 +69,7 @@ export class TagsInput extends LitElement {
       min-width: 80px;
       background: transparent;
       border: none;
-      color: #e0e0e0;
+      color: var(--text-primary);
       font-size: 13px;
       outline: none;
       padding: 2px 2px;
@@ -80,8 +80,8 @@ export class TagsInput extends LitElement {
       top: calc(100% + 4px);
       left: 0;
       right: 0;
-      background: #2a2a2e;
-      border: 1px solid rgba(255, 255, 255, 0.18);
+      background: var(--bg-dialog);
+      border: 1px solid var(--border-input-strong);
       border-radius: 6px;
       box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
       z-index: 200;
@@ -90,13 +90,13 @@ export class TagsInput extends LitElement {
     .suggestion {
       padding: 6px 12px;
       font-size: 12px;
-      color: #ccc;
+      color: var(--text-secondary);
       cursor: pointer;
     }
     .suggestion:hover,
     .suggestion.highlighted {
-      background: rgba(105, 180, 255, 0.15);
-      color: #fff;
+      background: var(--bg-active-history);
+      color: var(--text-primary);
     }
   `;
 

@@ -25,11 +25,11 @@ export class ClipboardItem extends LitElement {
       cursor: pointer;
     }
     .row:hover {
-      background: rgba(255, 255, 255, 0.06);
+      background: var(--bg-hover);
     }
     .row.active {
-      background: rgba(105, 180, 255, 0.15);
-      outline: 1px solid rgba(105, 180, 255, 0.35);
+      background: var(--bg-active-history);
+      outline: 1px solid var(--border-focus);
     }
     .text {
       flex: 1;
@@ -37,7 +37,7 @@ export class ClipboardItem extends LitElement {
       text-overflow: ellipsis;
       white-space: nowrap;
       font-size: 13px;
-      color: #e0e0e0;
+      color: var(--text-primary);
       cursor: default;
     }
     .thumbnail {
@@ -51,18 +51,18 @@ export class ClipboardItem extends LitElement {
       max-width: 100%;
       object-fit: contain;
       border-radius: 3px;
-      border: 1px solid rgba(255,255,255,0.08);
+      border: 1px solid var(--border-soft);
       cursor: default;
     }
     .image-label {
       font-size: 10px;
-      color: #999;
+      color: var(--text-muted);
       margin-left: 6px;
       white-space: nowrap;
     }
     .time {
       font-size: 10px;
-      color: #999;
+      color: var(--text-muted);
       flex-shrink: 0;
     }
     .actions {
@@ -71,32 +71,31 @@ export class ClipboardItem extends LitElement {
       flex-shrink: 0;
     }
     button {
-      background: rgba(255, 255, 255, 0.08);
-      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: var(--bg-input);
+      border: 1px solid var(--border-dialog);
       border-radius: 4px;
-      color: #ccc;
+      color: var(--text-primary);
       cursor: pointer;
       font-size: 11px;
       padding: 3px 7px;
       transition: background 0.1s, color 0.1s;
     }
     button:hover {
-      background: rgba(255, 255, 255, 0.18);
-      color: #fff;
+      background: var(--bg-hover);
     }
     button.pin {
-      color: #f0a840;
-      border-color: rgba(240, 168, 64, 0.3);
+      color: var(--accent-pinned);
+      border-color: var(--accent-pinned);
     }
     button.pin:hover {
-      background: rgba(240, 168, 64, 0.15);
+      background: var(--bg-active-pinned);
     }
     button.delete {
-      color: #e05a5a;
-      border-color: rgba(224, 90, 90, 0.3);
+      color: var(--accent-danger);
+      border-color: var(--accent-danger);
     }
     button.delete:hover {
-      background: rgba(224, 90, 90, 0.15);
+      background: var(--bg-active-history);
     }
   `;
 

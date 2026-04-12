@@ -15,72 +15,72 @@ export class PinDialog extends LitElement {
   static styles = css`
     :host { display: contents; }
     .overlay {
-      position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+      position: fixed; inset: 0; background: var(--overlay-bg);
       display: flex; align-items: center; justify-content: center; z-index: 100;
     }
     .dialog {
-      background: #2a2a2e; border: 1px solid rgba(255,255,255,0.12);
+      background: var(--bg-dialog); border: 1px solid var(--border-dialog);
       border-radius: 10px; padding: 20px 24px; width: 320px;
       box-shadow: 0 8px 32px rgba(0,0,0,0.5);
     }
-    h3 { margin: 0 0 8px; font-size: 14px; color: #f0a840; }
+    h3 { margin: 0 0 8px; font-size: 14px; color: var(--accent-pinned); }
     .preview {
-      font-size: 11px; color: #888; margin-bottom: 14px;
+      font-size: 11px; color: var(--text-muted); margin-bottom: 14px;
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
     .image-preview {
       margin-bottom: 14px; border-radius: 5px; overflow: hidden;
-      border: 1px solid rgba(255,255,255,0.1); display: inline-block;
+      border: 1px solid var(--border-soft); display: inline-block;
     }
     .image-preview img { max-height: 80px; max-width: 272px; object-fit: contain; display: block; }
-    label { display: block; font-size: 12px; color: #aaa; margin-bottom: 6px; }
+    label { display: block; font-size: 12px; color: var(--text-secondary); margin-bottom: 6px; }
     input {
       width: 100%; box-sizing: border-box;
-      background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.15);
-      border-radius: 5px; color: #e0e0e0; font-size: 13px;
+      background: var(--bg-input); border: 1px solid var(--border-input-strong);
+      border-radius: 5px; color: var(--text-primary); font-size: 13px;
       padding: 7px 10px; outline: none; margin-bottom: 16px;
     }
-    input:focus { border-color: #f0a840; }
+    input:focus { border-color: var(--accent-pinned); }
     .actions { display: flex; justify-content: flex-end; gap: 8px; }
     button {
       border-radius: 5px; cursor: pointer; font-size: 12px;
-      padding: 6px 14px; border: 1px solid rgba(255,255,255,0.15); transition: background 0.1s;
+      padding: 6px 14px; border: 1px solid var(--border-input-strong); transition: background 0.1s;
     }
-    .cancel { background: transparent; color: #aaa; }
-    .cancel:hover { background: rgba(255,255,255,0.08); }
-    .confirm { background: #f0a840; color: #1a1a1e; border-color: #f0a840; font-weight: 600; }
-    .confirm:hover { background: #f8bc60; }
+    .cancel { background: transparent; color: var(--text-secondary); }
+    .cancel:hover { background: var(--bg-hover); }
+    .confirm { background: var(--accent-pinned); color: #1a1a1e; border-color: var(--accent-pinned); font-weight: 600; }
+    .confirm:hover { opacity: 0.85; }
     .tag-field {
       display: flex; flex-wrap: wrap; align-items: center; gap: 5px;
-      background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.15);
+      background: var(--bg-input); border: 1px solid var(--border-input-strong);
       border-radius: 5px; padding: 5px 8px; min-height: 34px;
       cursor: text; margin-bottom: 16px; position: relative;
     }
-    .tag-field:focus-within { border-color: #f0a840; }
+    .tag-field:focus-within { border-color: var(--accent-pinned); }
     .pill {
       display: inline-flex; align-items: center; gap: 4px;
-      background: rgba(240,168,64,0.15); border: 1px solid rgba(240,168,64,0.35);
-      border-radius: 12px; color: #f0a840; font-size: 11px; font-weight: 600;
+      background: var(--bg-active-pinned); border: 1px solid var(--accent-pinned);
+      border-radius: 12px; color: var(--accent-pinned); font-size: 11px; font-weight: 600;
       padding: 2px 8px 2px 10px; white-space: nowrap;
     }
     .pill-x {
-      background: none; border: none; color: #f0a840; cursor: pointer;
+      background: none; border: none; color: var(--accent-pinned); cursor: pointer;
       font-size: 13px; line-height: 1; padding: 0 0 0 2px; opacity: 0.7;
     }
     .pill-x:hover { opacity: 1; }
     .tag-input {
       flex: 1; min-width: 80px; background: transparent; border: none;
-      color: #e0e0e0; font-size: 13px; outline: none; padding: 2px;
+      color: var(--text-primary); font-size: 13px; outline: none; padding: 2px;
       font-family: inherit;
     }
     .suggestions {
       position: absolute; top: calc(100% + 4px); left: 0; right: 0;
-      background: #2a2a2e; border: 1px solid rgba(255,255,255,0.18);
+      background: var(--bg-dialog); border: 1px solid var(--border-input-strong);
       border-radius: 6px; box-shadow: 0 6px 20px rgba(0,0,0,0.5);
       z-index: 200; overflow: hidden;
     }
-    .suggestion { padding: 6px 12px; font-size: 12px; color: #ccc; cursor: pointer; }
-    .suggestion:hover { background: rgba(240,168,64,0.15); color: #fff; }
+    .suggestion { padding: 6px 12px; font-size: 12px; color: var(--text-secondary); cursor: pointer; }
+    .suggestion:hover { background: var(--bg-active-pinned); color: var(--text-primary); }
   `;
 
   private _addTag(tag: string): void {

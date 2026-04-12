@@ -25,11 +25,11 @@ export class PinnedItem extends LitElement {
       cursor: pointer;
     }
     .row:hover {
-      background: rgba(255, 255, 255, 0.06);
+      background: var(--bg-hover);
     }
     .row.active {
-      background: rgba(240, 168, 64, 0.15);
-      outline: 1px solid rgba(240, 168, 64, 0.35);
+      background: var(--bg-active-pinned);
+      outline: 1px solid var(--accent-pinned);
     }
     .info {
       flex: 1;
@@ -38,14 +38,14 @@ export class PinnedItem extends LitElement {
     .name {
       font-size: 12px;
       font-weight: 600;
-      color: #f0a840;
+      color: var(--accent-pinned);
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
     }
     .text {
       font-size: 11px;
-      color: #bbb;
+      color: var(--text-secondary);
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -61,7 +61,7 @@ export class PinnedItem extends LitElement {
       max-width: 100%;
       object-fit: contain;
       border-radius: 3px;
-      border: 1px solid rgba(255,255,255,0.08);
+      border: 1px solid var(--border-soft);
     }
     .tags {
       display: flex;
@@ -72,9 +72,9 @@ export class PinnedItem extends LitElement {
     .tag {
       font-size: 10px;
       font-weight: 600;
-      color: #69b4ff;
-      background: rgba(105, 180, 255, 0.12);
-      border: 1px solid rgba(105, 180, 255, 0.25);
+      color: var(--accent-history);
+      background: var(--accent-history-bg);
+      border: 1px solid var(--accent-history);
       border-radius: 10px;
       padding: 1px 6px;
       white-space: nowrap;
@@ -85,32 +85,31 @@ export class PinnedItem extends LitElement {
       flex-shrink: 0;
     }
     button {
-      background: rgba(255, 255, 255, 0.08);
-      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: var(--bg-input);
+      border: 1px solid var(--border-dialog);
       border-radius: 4px;
-      color: #ccc;
+      color: var(--text-primary);
       cursor: pointer;
       font-size: 11px;
       padding: 3px 7px;
       transition: background 0.1s, color 0.1s;
     }
     button:hover {
-      background: rgba(255, 255, 255, 0.18);
-      color: #fff;
+      background: var(--bg-hover);
     }
     button.edit {
-      color: #69b4ff;
-      border-color: rgba(105, 180, 255, 0.3);
+      color: var(--accent-history);
+      border-color: var(--accent-history);
     }
     button.edit:hover {
-      background: rgba(105, 180, 255, 0.15);
+      background: var(--bg-active-history);
     }
     button.unpin {
-      color: #e05a5a;
-      border-color: rgba(224, 90, 90, 0.3);
+      color: var(--accent-danger);
+      border-color: var(--accent-danger);
     }
     button.unpin:hover {
-      background: rgba(224, 90, 90, 0.15);
+      background: var(--bg-active-history);
     }
   `;
 

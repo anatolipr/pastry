@@ -4,9 +4,12 @@ import { SignalWatcher } from 'avosignals';
 import {
   historySize,
   shortcut,
+  themeMode,
   setHistorySize,
   setShortcut,
+  setThemeMode,
   isSettingsOpen,
+  type ThemeMode,
 } from '../store/clipboard-store';
 
 // ---------------------------------------------------------------------------
@@ -70,6 +73,7 @@ export class SettingsDialog extends LitElement {
   @state() private _capturing = false;
   @state() private _error = '';
   @state() private _showTroubleshoot = false;
+  @state() private _theme: ThemeMode = 'auto';
 
   static styles = css`
     :host {
@@ -78,15 +82,15 @@ export class SettingsDialog extends LitElement {
     .overlay {
       position: fixed;
       inset: 0;
-      background: rgba(0, 0, 0, 0.6);
+      background: var(--overlay-bg);
       display: flex;
       align-items: center;
       justify-content: center;
       z-index: 100;
     }
     .dialog {
-      background: #2a2a2e;
-      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: var(--bg-dialog);
+      border: 1px solid var(--border-dialog);
       border-radius: 10px;
       padding: 20px 24px;
       width: 340px;
@@ -95,7 +99,7 @@ export class SettingsDialog extends LitElement {
     h3 {
       margin: 0 0 18px;
       font-size: 14px;
-      color: #e0e0e0;
+      color: var(--text-primary);
       font-weight: 600;
       letter-spacing: 0.02em;
     }
@@ -105,16 +109,16 @@ export class SettingsDialog extends LitElement {
     label {
       display: block;
       font-size: 12px;
-      color: #aaa;
+      color: var(--text-secondary);
       margin-bottom: 6px;
     }
     input[type="number"] {
       width: 80px;
       box-sizing: border-box;
-      background: rgba(255, 255, 255, 0.07);
-      border: 1px solid rgba(255, 255, 255, 0.15);
+      background: var(--bg-input);
+      border: 1px solid var(--border-input-strong);
       border-radius: 5px;
-      color: #e0e0e0;
+      color: var(--text-primary);
       font-size: 13px;
       padding: 7px 10px;
       outline: none;
@@ -125,7 +129,7 @@ export class SettingsDialog extends LitElement {
       -webkit-appearance: none;
     }
     input[type="number"]:focus {
-      border-color: rgba(105, 180, 255, 0.5);
+      border-color: var(--border-focus);
     }
     .shortcut-capture {
       display: flex;
@@ -135,9 +139,9 @@ export class SettingsDialog extends LitElement {
     .shortcut-badge {
       font-size: 14px;
       font-weight: 600;
-      color: #e0e0e0;
-      background: rgba(255, 255, 255, 0.07);
-      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: var(--text-primary);
+      background: var(--bg-input);
+      border: 1px solid var(--border-input-strong);
       border-radius: 5px;
       padding: 6px 12px;
       min-width: 70px;
@@ -149,23 +153,23 @@ export class SettingsDialog extends LitElement {
       cursor: pointer;
       font-size: 12px;
       padding: 6px 12px;
-      border: 1px solid rgba(255, 255, 255, 0.15);
+      border: 1px solid var(--border-input-strong);
       background: transparent;
-      color: #aaa;
+      color: var(--text-secondary);
       transition: background 0.1s, border-color 0.1s, color 0.1s;
       white-space: nowrap;
     }
     .capture-btn:hover {
-      background: rgba(255, 255, 255, 0.08);
+      background: var(--bg-hover);
     }
     .capture-btn.listening {
-      border-color: rgba(105, 180, 255, 0.6);
-      color: #69b4ff;
-      background: rgba(105, 180, 255, 0.08);
+      border-color: var(--border-focus);
+      color: var(--accent-history);
+      background: var(--accent-history-bg);
     }
     .error {
       font-size: 11px;
-      color: #e05a5a;
+      color: var(--accent-danger);
       margin-top: 8px;
     }
     .actions {
@@ -179,48 +183,74 @@ export class SettingsDialog extends LitElement {
       cursor: pointer;
       font-size: 12px;
       padding: 6px 14px;
-      border: 1px solid rgba(255, 255, 255, 0.15);
+      border: 1px solid var(--border-input-strong);
       transition: background 0.1s;
     }
     .cancel {
       background: transparent;
-      color: #aaa;
+      color: var(--text-secondary);
     }
     .cancel:hover {
-      background: rgba(255, 255, 255, 0.08);
+      background: var(--bg-hover);
     }
     .save {
-      background: #69b4ff;
-      color: #1a1a22;
-      border-color: #69b4ff;
+      background: var(--save-btn-bg);
+      color: var(--save-btn-color);
+      border-color: var(--save-btn-bg);
       font-weight: 600;
     }
     .save:hover {
-      background: #88c8ff;
+      background: var(--save-btn-hover);
+    }
+    .theme-pills {
+      display: flex;
+      gap: 6px;
+    }
+    .theme-pill {
+      flex: 1;
+      padding: 5px 0;
+      font-size: 12px;
+      font-weight: 500;
+      text-align: center;
+      border-radius: 5px;
+      border: 1px solid var(--border-input-strong);
+      background: transparent;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: background 0.1s, border-color 0.1s, color 0.1s;
+    }
+    .theme-pill:hover {
+      background: var(--bg-hover);
+    }
+    .theme-pill.active {
+      background: var(--theme-pill-active-bg);
+      border-color: var(--theme-pill-active-border);
+      color: var(--text-primary);
+      font-weight: 600;
     }
     .troubleshoot-section {
       margin-top: 20px;
-      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      border-top: 1px solid var(--border-soft);
       padding-top: 16px;
     }
     .troubleshoot-btn {
       background: transparent;
-      color: #aaa;
+      color: var(--text-secondary);
       font-size: 11px;
       padding: 4px 10px;
-      border: 1px solid rgba(255, 255, 255, 0.1);
+      border: 1px solid var(--border-soft);
       cursor: pointer;
       border-radius: 5px;
       transition: background 0.1s, color 0.1s;
     }
     .troubleshoot-btn:hover {
-      background: rgba(255, 255, 255, 0.06);
-      color: #ccc;
+      background: var(--bg-hover);
+      color: var(--text-primary);
     }
     .troubleshoot-content {
       margin-top: 12px;
       font-size: 11px;
-      color: #aaa;
+      color: var(--text-secondary);
       line-height: 1.6;
     }
     .troubleshoot-content p {
@@ -234,13 +264,13 @@ export class SettingsDialog extends LitElement {
       margin-bottom: 4px;
     }
     .cmd-block {
-      background: rgba(0, 0, 0, 0.3);
-      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: var(--cmd-block-bg);
+      border: 1px solid var(--cmd-block-border);
       border-radius: 4px;
       padding: 7px 10px;
       font-family: monospace;
       font-size: 10px;
-      color: #c5e3ff;
+      color: var(--cmd-block-color);
       white-space: pre;
       margin: 6px 0 10px;
       user-select: all;
@@ -248,7 +278,7 @@ export class SettingsDialog extends LitElement {
     .made-by {
       margin-top: 16px;
       font-size: 11px;
-      color: rgba(255, 255, 255, 0.25);
+      color: var(--made-by-color);
       text-align: center;
     }
   `;
@@ -258,6 +288,7 @@ export class SettingsDialog extends LitElement {
     this._historySize = historySize.get();
     this._shortcut = shortcut.get();
     this._shortcutDisplay = formatAccelerator(shortcut.get());
+    this._theme = themeMode.get();
   }
 
   disconnectedCallback(): void {
@@ -307,6 +338,7 @@ export class SettingsDialog extends LitElement {
     }
 
     setHistorySize(this._historySize);
+    setThemeMode(this._theme);
     isSettingsOpen.set(false);
   }
 
@@ -337,6 +369,18 @@ export class SettingsDialog extends LitElement {
                 if (!isNaN(v)) this._historySize = Math.max(1, Math.min(200, v));
               }}
             />
+          </div>
+
+          <div class="field">
+            <label>Appearance</label>
+            <div class="theme-pills">
+              ${(['dark', 'light', 'auto'] as ThemeMode[]).map(mode => html`
+                <button
+                  class="theme-pill ${this._theme === mode ? 'active' : ''}"
+                  @click=${() => { this._theme = mode; }}
+                >${mode[0].toUpperCase() + mode.slice(1)}</button>
+              `)}
+            </div>
           </div>
 
           <div class="field">
