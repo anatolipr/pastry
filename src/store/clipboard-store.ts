@@ -15,6 +15,7 @@ export const pinnedItems = new Signal<PinnedEntry[]>([], 'pinnedItems');
 export const historySize = new Signal<number>(DEFAULT_HISTORY_SIZE, 'historySize');
 export const shortcut = new Signal<string>(GLOBAL_SHORTCUT, 'shortcut');
 export const searchQuery = new Signal<string>('', 'searchQuery');
+export const tagFilter = new Signal<string[]>([], 'tagFilter');
 export const activeIndex = new Signal<number>(-1, 'activeIndex');
 export const isSettingsOpen = new Signal<boolean>(false, 'isSettingsOpen');
 
@@ -62,12 +63,27 @@ export const filteredHistory = new Computed<ClipboardEntry[]>(() => {
   );
 }, 'filteredHistory');
 
+export const allTags = new Computed<string[]>(() => {
+  const tags = new Set<string>();
+  for (const e of pinnedItems.get()) {
+    for (const t of (e.tags ?? [])) tags.add(t);
+  }
+  return [...tags].sort();
+}, 'allTags');
+
 export const filteredPinned = new Computed<PinnedEntry[]>(() => {
   const q = searchQuery.get().toLowerCase().trim();
-  if (!q) return pinnedItems.get();
-  return pinnedItems.get().filter(
-    (e) => e.text.toLowerCase().includes(q) || e.name.toLowerCase().includes(q),
-  );
+  const tf = tagFilter.get();
+  let items = pinnedItems.get();
+  if (q) {
+    items = items.filter(
+      (e) => e.text.toLowerCase().includes(q) || e.name.toLowerCase().includes(q),
+    );
+  }
+  if (tf.length > 0) {
+    items = items.filter((e) => tf.every((t) => (e.tags ?? []).includes(t)));
+  }
+  return items;
 }, 'filteredPinned');
 
 /** Flat combined list for keyboard navigation: history first, then pinned. */
@@ -117,7 +133,7 @@ export function addToHistory(payload: { text: string; imageDataUrl?: string; htm
  * Move the current pinTarget to pinnedItems with the given name,
  * then clear pinTarget.
  */
-export function pinItem(entry: ClipboardEntry, name: string): void {
+export function pinItem(entry: ClipboardEntry, name: string, tags: string[] = []): void {
   const trimmedName = name.trim() || (entry.imageDataUrl ? 'Image' : entry.text.slice(0, 30));
   const pinned: PinnedEntry = {
     id: crypto.randomUUID(),
@@ -125,6 +141,7 @@ export function pinItem(entry: ClipboardEntry, name: string): void {
     name: trimmedName,
     pinnedAt: Date.now(),
     imageDataUrl: entry.imageDataUrl,
+    tags: tags.length > 0 ? tags : undefined,
   };
   pinnedItems.update((prev) => [pinned, ...prev]);
   pinTarget.set(null);
@@ -143,12 +160,21 @@ export function unpinItem(id: string): void {
 /**
  * Update an existing pinned entry's name and/or text.
  */
-export function updatePinnedItem(id: string, name: string, text: string): void {
+export function updatePinnedItem(id: string, name: string, text: string, tags?: string[]): void {
   pinnedItems.update((prev) =>
-    prev.map((e) => (e.id === id ? { ...e, name: name.trim() || e.name, text: text.trim() || e.text } : e)),
+    prev.map((e) => (e.id === id ? {
+      ...e,
+      name: name.trim() || e.name,
+      text: text.trim() || e.text,
+      tags: tags !== undefined ? (tags.length > 0 ? tags : undefined) : e.tags,
+    } : e)),
   );
   editTarget.set(null);
   persistStore();
+}
+
+export function setTagFilter(tags: string[]): void {
+  tagFilter.set(tags);
 }
 
 export function setPinTarget(entry: ClipboardEntry | null): void {
@@ -234,8 +260,8 @@ export interface PastryExport {
 }
 
 export async function exportSelectedPins(ids: string[]): Promise<boolean> {
-  const all = pinnedItems.get();
-  const selected = all.filter((p) => ids.includes(p.id));
+  const visible = filteredPinned.get();
+  const selected = visible.filter((p) => ids.includes(p.id));
   const payload: PastryExport = { version: 1, pins: selected };
   return window.pastryAPI.exportPins(payload);
 }
@@ -255,6 +281,7 @@ export async function importPins(): Promise<void> {
       name: p.name ?? 'Imported',
       pinnedAt: p.pinnedAt ?? Date.now(),
       imageDataUrl: p.imageDataUrl,
+      tags: Array.isArray(p.tags) && p.tags.length > 0 ? p.tags : undefined,
     }));
   if (toAdd.length === 0) return;
   pinnedItems.set([...existing, ...toAdd]);

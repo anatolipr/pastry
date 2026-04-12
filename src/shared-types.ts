@@ -13,4 +13,5 @@ export interface PinnedEntry {
   pinnedAt: number;
   imageDataUrl?: string;
   htmlContent?: string;
+  tags?: string[];
 }

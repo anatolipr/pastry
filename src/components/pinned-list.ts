@@ -1,7 +1,7 @@
 import { LitElement, html, css } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { SignalWatcher } from 'avosignals';
-import { filteredPinned, filteredHistory, activeIndex, exportSelectedPins, importPins } from '../store/clipboard-store';
+import { filteredPinned, filteredHistory, activeIndex, exportSelectedPins, importPins, allTags, tagFilter, setTagFilter } from '../store/clipboard-store';
 import './pinned-item';
 
 @customElement('pinned-list')
@@ -115,6 +115,42 @@ export class PinnedList extends LitElement {
       flex: 1;
       min-width: 0;
     }
+    .tag-filter-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 5px;
+      padding: 0 10px 8px;
+    }
+    .tag-filter-label {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: #666;
+      margin-right: 2px;
+    }
+    .tag-chip {
+      font-size: 11px;
+      font-weight: 600;
+      border-radius: 12px;
+      padding: 2px 9px;
+      cursor: pointer;
+      border: 1px solid rgba(105, 180, 255, 0.25);
+      background: transparent;
+      color: #888;
+      transition: background 0.1s, color 0.1s, border-color 0.1s;
+      line-height: 1.4;
+    }
+    .tag-chip:hover {
+      color: #69b4ff;
+      border-color: rgba(105, 180, 255, 0.5);
+    }
+    .tag-chip.active {
+      background: rgba(105, 180, 255, 0.18);
+      border-color: rgba(105, 180, 255, 0.5);
+      color: #69b4ff;
+    }
   `;
 
   private get allIds() {
@@ -165,10 +201,21 @@ export class PinnedList extends LitElement {
     await importPins();
   }
 
+  private toggleTagFilter(tag: string) {
+    const current = tagFilter.get();
+    if (current.includes(tag)) {
+      setTagFilter(current.filter((t) => t !== tag));
+    } else {
+      setTagFilter([...current, tag]);
+    }
+  }
+
   render() {
     const items = filteredPinned.get();
     const historyCount = filteredHistory.get().length;
     const idx = activeIndex.get();
+    const tags = allTags.get();
+    const activeTags = tagFilter.get();
 
     return html`
       <div class="header-row">
@@ -187,6 +234,18 @@ export class PinnedList extends LitElement {
               <button class="btn btn-ghost" @click=${this.enterExportMode}>Export</button>
             `}
       </div>
+
+      ${tags.length > 0 ? html`
+        <div class="tag-filter-row">
+          <span class="tag-filter-label">Tags</span>
+          ${tags.map((tag) => html`
+            <button
+              class="tag-chip ${activeTags.includes(tag) ? 'active' : ''}"
+              @click=${() => this.toggleTagFilter(tag)}
+            >${tag}</button>
+          `)}
+        </div>
+      ` : ''}
 
       ${this.exportMode && items.length > 0 ? html`
         <div class="select-all-row">

@@ -63,6 +63,22 @@ export class PinnedItem extends LitElement {
       border-radius: 3px;
       border: 1px solid rgba(255,255,255,0.08);
     }
+    .tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 3px;
+      margin-top: 3px;
+    }
+    .tag {
+      font-size: 10px;
+      font-weight: 600;
+      color: #69b4ff;
+      background: rgba(105, 180, 255, 0.12);
+      border: 1px solid rgba(105, 180, 255, 0.25);
+      border-radius: 10px;
+      padding: 1px 6px;
+      white-space: nowrap;
+    }
     .actions {
       display: flex;
       gap: 4px;
@@ -132,6 +148,9 @@ export class PinnedItem extends LitElement {
         <div class="info">
           <div class="name">${this.entry.name}</div>
           ${preview}
+          ${this.entry.tags && this.entry.tags.length > 0 ? html`
+            <div class="tags">${this.entry.tags.map((t) => html`<span class="tag">${t}</span>`)}</div>
+          ` : ''}
         </div>
         <div class="actions" @click=${(e: Event) => e.stopPropagation()}>
           <button @click=${this._handleCopy}>Copy</button>
