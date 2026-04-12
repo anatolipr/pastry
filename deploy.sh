@@ -1,10 +1,38 @@
 #!/bin/bash
 set -e
 
-BUMP=${1:-minor}
+usage() {
+  echo "Usage: $0 <major|minor|patch>"
+  echo ""
+  echo "Bump the version tag and trigger a GitHub Actions release build."
+  echo ""
+  echo "Arguments:"
+  echo "  major   Increment major version (x.0.0)"
+  echo "  minor   Increment minor version (0.x.0)"
+  echo "  patch   Increment patch version (0.0.x)"
+  echo ""
+  echo "Examples:"
+  echo "  $0 patch   # v1.2.3 → v1.2.4"
+  echo "  $0 minor   # v1.2.3 → v1.3.0"
+  echo "  $0 major   # v1.2.3 → v2.0.0"
+}
+
+if [[ -z "$1" ]]; then
+  usage
+  exit 1
+fi
+
+BUMP=$1
+
+if [[ "$BUMP" == "--help" || "$BUMP" == "-h" ]]; then
+  usage
+  exit 0
+fi
 
 if [[ "$BUMP" != "major" && "$BUMP" != "minor" && "$BUMP" != "patch" ]]; then
-  echo "Usage: $0 [major|minor|patch]"
+  echo "Error: invalid argument '$BUMP'"
+  echo ""
+  usage
   exit 1
 fi
 
