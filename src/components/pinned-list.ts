@@ -1,7 +1,7 @@
 import { LitElement, html, css } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { SignalWatcher } from 'avosignals';
-import { filteredPinned, filteredHistory, activeIndex, exportSelectedPins, importPins, allTags, tagFilter, setTagFilter } from '../store/clipboard-store';
+import { filteredPinned, filteredHistory, activeIndex, exportSelectedPins, importPins, allTags, tagFilter, setTagFilter, setNewPinOpen } from '../store/clipboard-store';
 import './pinned-item';
 
 @customElement('pinned-list')
@@ -68,6 +68,18 @@ export class PinnedList extends LitElement {
       line-height: 1.4;
     }
     .btn-import:hover { color: var(--text-primary); }
+    .btn-new {
+      background: transparent;
+      color: var(--accent-pinned);
+      font-size: 16px;
+      font-weight: 400;
+      border: none;
+      border-radius: 5px;
+      padding: 2px 6px;
+      cursor: pointer;
+      line-height: 1;
+    }
+    .btn-new:hover { opacity: 0.7; }
     .select-all-row {
       display: flex;
       align-items: center;
@@ -230,6 +242,7 @@ export class PinnedList extends LitElement {
           : html`
               <button class="btn-import" @click=${this.doImport}>Import</button>
               <button class="btn btn-ghost" @click=${this.enterExportMode}>Export</button>
+              <button class="btn-new" title="New pin" @click=${() => setNewPinOpen(true)}>+</button>
             `}
       </div>
 

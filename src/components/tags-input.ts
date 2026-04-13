@@ -30,7 +30,7 @@ export class TagsInput extends LitElement {
       border-radius: 5px;
       padding: 5px 8px;
       cursor: text;
-      min-height: 34px;
+      min-height: auto;
       position: relative;
     }
     .container:focus-within {
@@ -131,7 +131,14 @@ export class TagsInput extends LitElement {
 
   private _handleKeydown = (e: KeyboardEvent): void => {
     const suggestions = this._filteredSuggestions;
-    if (e.key === 'Enter' || e.key === ',') {
+    if (e.key === 'Tab' && this._inputValue.trim()) {
+      e.preventDefault();
+      if (this._highlightedIdx >= 0 && suggestions[this._highlightedIdx]) {
+        this._addTag(suggestions[this._highlightedIdx]);
+      } else {
+        this._addTag(this._inputValue);
+      }
+    } else if (e.key === 'Enter' || e.key === ',') {
       e.preventDefault();
       if (this._highlightedIdx >= 0 && suggestions[this._highlightedIdx]) {
         this._addTag(suggestions[this._highlightedIdx]);
@@ -163,6 +170,9 @@ export class TagsInput extends LitElement {
     setTimeout(() => {
       this._showSuggestions = false;
       this._highlightedIdx = -1;
+      if (this._inputValue.trim()) {
+        this._addTag(this._inputValue);
+      }
     }, 150);
   };
 

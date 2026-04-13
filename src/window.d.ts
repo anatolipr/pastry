@@ -17,6 +17,8 @@ export interface PastryAPI {
   exportPins: (data: unknown) => Promise<boolean>;
   importPins: () => Promise<unknown>;
   notifyHistoryDeleted: (payload: ClipboardPayload) => void;
+  openImagePreview: (dataUrl: string, title: string) => void;
+  onImagePreviewData: (callback: (payload: { dataUrl: string; title: string }) => void) => () => void;
 }
 
 export interface PastryStore {

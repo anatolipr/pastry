@@ -34,6 +34,9 @@ export const editTarget = new Signal<PinnedEntry | null>(null, 'editTarget');
 /** The history entry currently being considered for deletion (drives delete-dialog). */
 export const deleteTarget = new Signal<ClipboardEntry | null>(null, 'deleteTarget');
 
+/** Whether the "new pin" dialog (create from scratch) is open. */
+export const isNewPinOpen = new Signal<boolean>(false, 'isNewPinOpen');
+
 // ---------------------------------------------------------------------------
 // Derived / computed
 // ---------------------------------------------------------------------------
@@ -204,6 +207,29 @@ export function setEditTarget(entry: PinnedEntry | null): void {
 
 export function setDeleteTarget(entry: ClipboardEntry | null): void {
   deleteTarget.set(entry);
+}
+
+export function setNewPinOpen(open: boolean): void {
+  isNewPinOpen.set(open);
+}
+
+/**
+ * Directly create a new pinned entry from scratch (not from clipboard history).
+ */
+export function pinNewItem(text: string, name: string, tags: string[] = []): void {
+  const trimmedText = text.trim();
+  if (!trimmedText) return;
+  const trimmedName = name.trim() || trimmedText.slice(0, 30);
+  const pinned: PinnedEntry = {
+    id: crypto.randomUUID(),
+    text: trimmedText,
+    name: trimmedName,
+    pinnedAt: Date.now(),
+    tags: tags.length > 0 ? tags : undefined,
+  };
+  pinnedItems.update((prev) => [pinned, ...prev]);
+  isNewPinOpen.set(false);
+  persistStore();
 }
 
 export function deleteHistoryItem(id: string): void {

@@ -138,6 +138,7 @@ const createWindow = () => {
 
   // Hide window when it loses focus so it feels like a palette.
   mainWindow.on('blur', () => {
+    if (openPreviewCount > 0) return;
     mainWindow?.hide();
   });
 };
@@ -153,6 +154,7 @@ ipcMain.on('window:hide', () => {
 // Track what Pastry itself writes so the watcher doesn't re-add it to history.
 let lastClipboardText = '';
 let lastImageSignature = ''; // length+prefix to detect changes without full compare
+let openPreviewCount = 0;
 
 ipcMain.on('clipboard:write', (_event, text: string) => {
   lastClipboardText = text;
@@ -328,6 +330,71 @@ function toggleWindow(): void {
 // ---------------------------------------------------------------------------
 // Global shortcut IPC
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Image preview window
+// ---------------------------------------------------------------------------
+
+const IMAGE_PREVIEW_HTML = `<!DOCTYPE html>
+<html><head>
+<meta charset="utf-8">
+<style>
+  html, body {
+    margin: 0; padding: 0; width: 100%; height: 100vh;
+    background: #1e1e1e; display: flex; flex-direction: column;
+    overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+  #titlebar {
+    -webkit-app-region: drag;
+    height: 28px; background: #2a2a2a; display: flex; align-items: center;
+    padding: 0 14px; flex-shrink: 0; font-size: 12px; font-weight: 600;
+    color: #aaa; border-bottom: 1px solid #3a3a3a; box-sizing: border-box;
+  }
+  #img-wrap {
+    flex: 1; display: flex; align-items: center; justify-content: center;
+    padding: 12px; overflow: hidden;
+  }
+  img { max-width: 100%; max-height: 100%; object-fit: contain; display: block; border-radius: 4px; }
+</style>
+</head><body>
+<div id="titlebar">Image</div>
+<div id="img-wrap"><img id="img" alt="" /></div>
+<script>
+  if (window.pastryAPI && window.pastryAPI.onImagePreviewData) {
+    window.pastryAPI.onImagePreviewData(function(data) {
+      document.getElementById('img').src = data.dataUrl;
+      document.getElementById('titlebar').textContent = data.title;
+      document.title = data.title;
+    });
+  }
+</script>
+</body></html>`;
+
+ipcMain.on('image-preview:open', (_event, payload: { dataUrl: string; title: string }) => {
+  const win = new BrowserWindow({
+    width: 600,
+    height: 520,
+    minWidth: 300,
+    minHeight: 220,
+    title: payload.title,
+    show: false,
+    alwaysOnTop: true,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  });
+  openPreviewCount++;
+  win.on('closed', () => {
+    openPreviewCount--;
+  });
+  win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(IMAGE_PREVIEW_HTML)}`);
+  win.webContents.once('did-finish-load', () => {
+    win.webContents.send('image-preview:data', payload);
+    win.show();
+  });
+});
 
 ipcMain.handle('shortcut:register', (_event, newShortcut: string) => {
   globalShortcut.unregister(currentShortcut);

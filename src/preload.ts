@@ -52,6 +52,17 @@ const api: PastryAPI = {
   notifyHistoryDeleted(payload): void {
     ipcRenderer.send('clipboard:history-deleted', payload);
   },
+
+  openImagePreview(dataUrl: string, title: string): void {
+    ipcRenderer.send('image-preview:open', { dataUrl, title });
+  },
+
+  onImagePreviewData(callback) {
+    const handler = (_event: Electron.IpcRendererEvent, payload: { dataUrl: string; title: string }) =>
+      callback(payload);
+    ipcRenderer.once('image-preview:data', handler);
+    return () => ipcRenderer.removeListener('image-preview:data', handler);
+  },
 };
 
 contextBridge.exposeInMainWorld('pastryAPI', api);

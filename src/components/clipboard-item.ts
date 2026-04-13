@@ -52,7 +52,7 @@ export class ClipboardItem extends LitElement {
       object-fit: contain;
       border-radius: 3px;
       border: 1px solid var(--border-soft);
-      cursor: default;
+      cursor: zoom-in;
     }
     .image-label {
       font-size: 10px;
@@ -128,10 +128,15 @@ export class ClipboardItem extends LitElement {
     setDeleteTarget(this.entry);
   }
 
+  private _handleImagePreview(e: Event): void {
+    e.stopPropagation();
+    window.pastryAPI.openImagePreview(this.entry.imageDataUrl!, 'Image');
+  }
+
   render() {
     const isImage = Boolean(this.entry.imageDataUrl);
     const content = isImage
-      ? html`<div class="thumbnail"><img src=${this.entry.imageDataUrl!} /><span class="image-label">Image</span></div>`
+      ? html`<div class="thumbnail"><img src=${this.entry.imageDataUrl!} @click=${this._handleImagePreview} /><span class="image-label">Image</span></div>`
       : html`<span class="text" title=${this.entry.text}>${this.entry.text}</span>`;
     return html`
       <div class="row ${this.active ? 'active' : ''}" @click=${this._handlePaste}>

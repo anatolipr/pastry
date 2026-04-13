@@ -97,6 +97,7 @@ export class PinDialog extends LitElement {
 
   private _onTagKeydown(e: KeyboardEvent): void {
     if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); e.stopPropagation(); this._addTag(this._tagInput); }
+    else if (e.key === 'Tab' && this._tagInput.trim()) { e.preventDefault(); this._addTag(this._tagInput); }
     else if (e.key === 'Backspace' && !this._tagInput && this._tags.length > 0) { this._removeTag(this._tags[this._tags.length - 1]); }
     else if (e.key === 'Escape') { this._tagSuggestions = []; }
   }
@@ -163,7 +164,7 @@ export class PinDialog extends LitElement {
               placeholder=${this._tags.length === 0 ? 'Add tag…' : ''}
               @input=${this._onTagInput}
               @keydown=${this._onTagKeydown}
-              @blur=${() => setTimeout(() => { this._tagSuggestions = []; }, 150)}
+              @blur=${() => setTimeout(() => { this._tagSuggestions = []; if (this._tagInput.trim()) this._addTag(this._tagInput); }, 150)}
             />
             ${this._tagSuggestions.length > 0 ? html`
               <div class="suggestions">

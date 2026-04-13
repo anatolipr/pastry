@@ -1,18 +1,17 @@
 import { LitElement, html, css } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { SignalWatcher } from 'avosignals';
-import { editTarget, isEditDialogOpen, updatePinnedItem, setEditTarget, allTags } from '../store/clipboard-store';
+import { isNewPinOpen, setNewPinOpen, pinNewItem, allTags } from '../store/clipboard-store';
 
-@customElement('edit-dialog')
-export class EditDialog extends LitElement {
+@customElement('new-pin-dialog')
+export class NewPinDialog extends LitElement {
   private watcher = new SignalWatcher(this);
 
-  @state() private _name = '';
   @state() private _text = '';
+  @state() private _name = '';
   @state() private _tags: string[] = [];
   @state() private _tagInput = '';
   @state() private _tagSuggestions: string[] = [];
-  @state() private _seeded = false;
 
   static styles = css`
     :host { display: contents; }
@@ -22,19 +21,26 @@ export class EditDialog extends LitElement {
     }
     .dialog {
       background: var(--bg-dialog); border: 1px solid var(--border-dialog);
-      border-radius: 10px; padding: 20px 24px; width: 360px;
+      border-radius: 10px; padding: 20px 24px; width: 320px;
       box-shadow: 0 8px 32px rgba(0,0,0,0.5);
     }
-    h3 { margin: 0 0 16px; font-size: 14px; color: var(--accent-history); }
-    label { display: block; font-size: 12px; color: var(--text-secondary); margin-bottom: 5px; }
-    input, textarea {
+    h3 { margin: 0 0 14px; font-size: 14px; color: var(--accent-pinned); }
+    label { display: block; font-size: 12px; color: var(--text-secondary); margin-bottom: 6px; }
+    textarea {
       width: 100%; box-sizing: border-box;
       background: var(--bg-input); border: 1px solid var(--border-input-strong);
       border-radius: 5px; color: var(--text-primary); font-size: 13px;
-      padding: 7px 10px; outline: none; margin-bottom: 14px;
+      padding: 7px 10px; outline: none; margin-bottom: 16px;
+      font-family: inherit; resize: vertical; min-height: 72px;
     }
-    input:focus, textarea:focus { border-color: var(--accent-history); }
-    textarea { resize: vertical; min-height: 72px; font-family: inherit; }
+    textarea:focus { border-color: var(--accent-pinned); }
+    input {
+      width: 100%; box-sizing: border-box;
+      background: var(--bg-input); border: 1px solid var(--border-input-strong);
+      border-radius: 5px; color: var(--text-primary); font-size: 13px;
+      padding: 7px 10px; outline: none; margin-bottom: 16px;
+    }
+    input:focus { border-color: var(--accent-pinned); }
     .actions { display: flex; justify-content: flex-end; gap: 8px; }
     button {
       border-radius: 5px; cursor: pointer; font-size: 12px;
@@ -42,30 +48,31 @@ export class EditDialog extends LitElement {
     }
     .cancel { background: transparent; color: var(--text-secondary); }
     .cancel:hover { background: var(--bg-hover); }
-    .confirm { background: var(--save-btn-bg); color: var(--save-btn-color); border-color: var(--save-btn-bg); font-weight: 600; }
-    .confirm:hover { background: var(--save-btn-hover); }
+    .confirm { background: var(--accent-pinned); color: #1a1a1e; border-color: var(--accent-pinned); font-weight: 600; }
+    .confirm:hover { opacity: 0.85; }
+    .confirm:disabled { opacity: 0.4; cursor: default; }
     .tag-field {
       display: flex; flex-wrap: wrap; align-items: center; gap: 5px;
       background: var(--bg-input); border: 1px solid var(--border-input-strong);
       border-radius: 5px; padding: 5px 8px; min-height: 34px;
-      cursor: text; margin-bottom: 14px; position: relative;
+      cursor: text; margin-bottom: 16px; position: relative;
     }
-    .tag-field:focus-within { border-color: var(--accent-history); }
+    .tag-field:focus-within { border-color: var(--accent-pinned); }
     .pill {
       display: inline-flex; align-items: center; gap: 4px;
-      background: var(--accent-history-bg); border: 1px solid var(--accent-history);
-      border-radius: 12px; color: var(--accent-history); font-size: 11px; font-weight: 600;
+      background: var(--bg-active-pinned); border: 1px solid var(--accent-pinned);
+      border-radius: 12px; color: var(--accent-pinned); font-size: 11px; font-weight: 600;
       padding: 2px 8px 2px 10px; white-space: nowrap;
     }
     .pill-x {
-      background: none; border: none; color: var(--accent-history); cursor: pointer;
+      background: none; border: none; color: var(--accent-pinned); cursor: pointer;
       font-size: 13px; line-height: 1; padding: 0 0 0 2px; opacity: 0.7;
     }
     .pill-x:hover { opacity: 1; }
     .tag-input {
       flex: 1; min-width: 80px; background: transparent; border: none;
       color: var(--text-primary); font-size: 13px; outline: none; padding: 2px;
-      font-family: inherit; margin-bottom: 0;
+      font-family: inherit;
     }
     .suggestions {
       position: absolute; top: calc(100% + 4px); left: 0; right: 0;
@@ -73,22 +80,9 @@ export class EditDialog extends LitElement {
       border-radius: 6px; box-shadow: 0 6px 20px rgba(0,0,0,0.5);
       z-index: 200; overflow: hidden;
     }
-    .suggestion {
-      padding: 6px 12px; font-size: 12px; color: var(--text-secondary); cursor: pointer;
-    }
-    .suggestion:hover { background: var(--bg-active-history); color: var(--text-primary); }
+    .suggestion { padding: 6px 12px; font-size: 12px; color: var(--text-secondary); cursor: pointer; }
+    .suggestion:hover { background: var(--bg-active-pinned); color: var(--text-primary); }
   `;
-
-  private _seed(): void {
-    const entry = editTarget.get();
-    if (entry && !this._seeded) {
-      this._name = entry.name;
-      this._text = entry.text;
-      this._tags = [...(entry.tags ?? [])];
-      this._seeded = true;
-    }
-    if (!entry) this._seeded = false;
-  }
 
   private _addTag(tag: string): void {
     const t = tag.trim();
@@ -119,34 +113,50 @@ export class EditDialog extends LitElement {
   }
 
   private _handleConfirm(): void {
-    const entry = editTarget.get();
-    if (!entry) return;
-    // Commit any pending tag text
+    if (!this._text.trim()) return;
     if (this._tagInput.trim()) this._addTag(this._tagInput);
-    updatePinnedItem(entry.id, this._name, this._text, this._tags);
-    this._seeded = false;
+    pinNewItem(this._text, this._name, this._tags);
+    this._reset();
   }
 
   private _handleCancel(): void {
-    setEditTarget(null);
-    this._seeded = false;
+    setNewPinOpen(false);
+    this._reset();
+  }
+
+  private _reset(): void {
+    this._text = '';
+    this._name = '';
+    this._tags = [];
     this._tagInput = '';
     this._tagSuggestions = [];
   }
 
   render() {
-    if (!isEditDialogOpen.get()) return html``;
-    this._seed();
+    if (!isNewPinOpen.get()) return html``;
+
     return html`
       <div class="overlay"
         @mousedown=${(e: MouseEvent) => { if (e.target === e.currentTarget) (e.currentTarget as HTMLElement).dataset['dismissDown'] = '1'; }}
         @mouseup=${(e: MouseEvent) => { const el = e.currentTarget as HTMLElement; if (e.target === el && el.dataset['dismissDown']) this._handleCancel(); delete el.dataset['dismissDown']; }}>
         <div class="dialog">
-          <h3>Edit Pinned Item</h3>
-          <label>Label</label>
-          <input type="text" .value=${this._name}
+          <h3>New pin</h3>
+          <label for="new-pin-text">Content</label>
+          <textarea
+            id="new-pin-text"
+            .value=${this._text}
+            placeholder="Enter text to pin…"
+            @input=${(e: Event) => { this._text = (e.target as HTMLTextAreaElement).value; }}
+            @keydown=${(e: KeyboardEvent) => { if (e.key === 'Escape') this._handleCancel(); }}
+            autofocus
+          ></textarea>
+          <label for="new-pin-name">Label (optional)</label>
+          <input
+            id="new-pin-name"
+            type="text"
+            .value=${this._name}
+            placeholder=${this._text.trim().slice(0, 30) || 'Label…'}
             @input=${(e: Event) => { this._name = (e.target as HTMLInputElement).value; }}
-            placeholder="Label for this pin"
             @keydown=${(e: KeyboardEvent) => { if (e.key === 'Enter') this._handleConfirm(); if (e.key === 'Escape') this._handleCancel(); }}
           />
           <label>Tags (optional)</label>
@@ -167,15 +177,9 @@ export class EditDialog extends LitElement {
                   <div class="suggestion" @mousedown=${(e: Event) => { e.preventDefault(); this._addTag(s); }}>${s}</div>`)}
               </div>` : ''}
           </div>
-          <label>Value</label>
-          <textarea .value=${this._text}
-            @input=${(e: Event) => { this._text = (e.target as HTMLTextAreaElement).value; }}
-            placeholder="Clipboard value"
-            @keydown=${(e: KeyboardEvent) => { if (e.key === 'Escape') this._handleCancel(); }}
-          ></textarea>
           <div class="actions">
             <button class="cancel" @click=${this._handleCancel}>Cancel</button>
-            <button class="confirm" @click=${this._handleConfirm}>Save</button>
+            <button class="confirm" ?disabled=${!this._text.trim()} @click=${this._handleConfirm}>Pin</button>
           </div>
         </div>
       </div>

@@ -2,7 +2,7 @@ import { LitElement, html, css } from 'lit';
 import { customElement, query } from 'lit/decorators.js';
 import { SignalWatcher } from 'avosignals';
 import {
-  isPinDialogOpen, isUnpinDialogOpen, isEditDialogOpen, isDeleteDialogOpen, isSettingsOpen,
+  isPinDialogOpen, isUnpinDialogOpen, isEditDialogOpen, isDeleteDialogOpen, isSettingsOpen, isNewPinOpen,
   searchQuery, activeItem, combinedItems, moveActiveIndexInPanel, moveActivePanel, setActiveIndex,
 } from '../store/clipboard-store';
 import './history-list';
@@ -13,6 +13,7 @@ import './unpin-dialog';
 import './edit-dialog';
 import './delete-dialog';
 import './settings-dialog';
+import './new-pin-dialog';
 
 @customElement('pastry-app')
 export class PastryApp extends LitElement {
@@ -135,7 +136,7 @@ export class PastryApp extends LitElement {
 
   private _onKeyDown = (e: KeyboardEvent): void => {
     // Don't intercept when a dialog is open or user is editing pinned item text.
-    if (isPinDialogOpen.get() || isUnpinDialogOpen.get() || isEditDialogOpen.get() || isDeleteDialogOpen.get() || isSettingsOpen.get()) return;
+    if (isPinDialogOpen.get() || isUnpinDialogOpen.get() || isEditDialogOpen.get() || isDeleteDialogOpen.get() || isSettingsOpen.get() || isNewPinOpen.get()) return;
 
     // If search is not focused and user types an alphanumeric character (no modifiers),
     // focus the search input and let the keystroke land in it naturally.
@@ -258,6 +259,7 @@ export class PastryApp extends LitElement {
       ${isUnpinDialogOpen.get() ? html`<unpin-dialog></unpin-dialog>` : ''}
       ${isEditDialogOpen.get() ? html`<edit-dialog></edit-dialog>` : ''}
       ${isDeleteDialogOpen.get() ? html`<delete-dialog></delete-dialog>` : ''}
+      ${isNewPinOpen.get() ? html`<new-pin-dialog></new-pin-dialog>` : ''}
       ${isSettingsOpen.get() ? html`<settings-dialog></settings-dialog>` : ''}
     `;
   }
