@@ -154,6 +154,7 @@ ipcMain.on('window:hide', () => {
 // Track what Pastry itself writes so the watcher doesn't re-add it to history.
 let lastClipboardText = '';
 let lastImageSignature = ''; // length+prefix to detect changes without full compare
+let lastImageQuickSig = ''; // "WxH" cheap pre-check to avoid toDataURL() on every poll
 let openPreviewCount = 0;
 
 ipcMain.on('clipboard:write', (_event, text: string) => {
@@ -185,7 +186,10 @@ ipcMain.on('clipboard:write-image', (_event, dataUrl: string) => {
   const sig = `${dataUrl.length}:${dataUrl.slice(0, 40)}`;
   lastImageSignature = sig;
   lastClipboardText = '';
-  clipboard.writeImage(nativeImage.createFromDataURL(dataUrl));
+  const native = nativeImage.createFromDataURL(dataUrl);
+  const { width, height } = native.getSize();
+  lastImageQuickSig = `${width}x${height}`;
+  clipboard.writeImage(native);
 });
 
 // ---------------------------------------------------------------------------
@@ -272,6 +276,13 @@ function startClipboardWatcher(): void {
   setInterval(() => {
     const img = clipboard.readImage();
     if (!img.isEmpty()) {
+      // Fast path: compare dimensions only (no PNG encoding) to skip unchanged images.
+      const { width, height } = img.getSize();
+      const quickSig = `${width}x${height}`;
+      if (quickSig === lastImageQuickSig) return;
+
+      // Dimensions changed — compute full signature and notify if new.
+      lastImageQuickSig = quickSig;
       const dataUrl = img.toDataURL();
       const sig = `${dataUrl.length}:${dataUrl.slice(0, 40)}`;
       if (sig !== lastImageSignature) {
@@ -283,7 +294,8 @@ function startClipboardWatcher(): void {
       }
       return;
     }
-    // No image — check text
+    // No image — reset quick sig and check text.
+    lastImageQuickSig = '';
     const current = clipboard.readText();
     if (current !== lastClipboardText) {
       lastClipboardText = current;
