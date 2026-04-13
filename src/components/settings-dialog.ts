@@ -73,6 +73,7 @@ export class SettingsDialog extends LitElement {
   @state() private _capturing = false;
   @state() private _error = '';
   @state() private _showTroubleshoot = false;
+  @state() private _showHelp = false;
   @state() private _theme: ThemeMode = 'auto';
 
   static styles = css`
@@ -281,6 +282,100 @@ export class SettingsDialog extends LitElement {
       color: var(--made-by-color);
       text-align: center;
     }
+    .dialog-header {
+      display: flex;
+      align-items: center;
+      margin-bottom: 18px;
+    }
+    .dialog-header h3 {
+      margin: 0;
+      flex: 1;
+    }
+    .help-btn {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      border: 1px solid var(--border-input-strong);
+      background: transparent;
+      color: var(--text-secondary);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      padding: 0;
+      line-height: 1;
+      transition: background 0.1s, color 0.1s, border-color 0.1s;
+      flex-shrink: 0;
+    }
+    .help-btn:hover {
+      background: var(--bg-hover);
+      color: var(--text-primary);
+      border-color: var(--border-focus);
+    }
+    .help-content {
+      font-size: 12px;
+      color: var(--text-secondary);
+      line-height: 1.6;
+    }
+    .help-section {
+      margin-bottom: 14px;
+    }
+    .help-section-title {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-primary);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 8px;
+    }
+    .shortcut-row {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      margin-bottom: 5px;
+    }
+    .shortcut-key {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-primary);
+      background: var(--bg-input);
+      border: 1px solid var(--border-input-strong);
+      border-radius: 4px;
+      padding: 1px 7px;
+      white-space: nowrap;
+      letter-spacing: 0.04em;
+      flex-shrink: 0;
+    }
+    .shortcut-desc {
+      color: var(--text-secondary);
+      font-size: 12px;
+    }
+    .feature-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 5px;
+    }
+    .feature-name {
+      font-weight: 600;
+      color: var(--text-primary);
+      min-width: 90px;
+      flex-shrink: 0;
+    }
+    .help-actions {
+      display: flex;
+      justify-content: flex-end;
+      margin-top: 20px;
+    }
+    .help-dialog {
+      width: 420px;
+      max-height: 80vh;
+      display: flex;
+      flex-direction: column;
+    }
+    .help-dialog .help-content {
+      overflow-y: auto;
+      flex: 1;
+      min-height: 0;
+    }
   `;
 
   connectedCallback(): void {
@@ -355,7 +450,65 @@ export class SettingsDialog extends LitElement {
         @mouseup=${(e: MouseEvent) => { const el = e.currentTarget as HTMLElement; if (e.target === el && el.dataset['dismissDown']) this._handleCancel(); delete el.dataset['dismissDown']; }}
       >
         <div class="dialog">
-          <h3>Settings</h3>
+          <div class="dialog-header">
+            <h3>Settings</h3>
+            <button class="help-btn" title="Help & Shortcuts" @click=${() => { this._showHelp = true; }}>?</button>
+          </div>
+          ${this._renderSettings()}
+        </div>
+      </div>
+      ${this._showHelp ? html`
+        <div
+          class="overlay"
+          style="z-index: 110"
+          @mousedown=${(e: MouseEvent) => { if (e.target === e.currentTarget) (e.currentTarget as HTMLElement).dataset['dismissDown'] = '1'; }}
+          @mouseup=${(e: MouseEvent) => { const el = e.currentTarget as HTMLElement; if (e.target === el && el.dataset['dismissDown']) { this._showHelp = false; } delete el.dataset['dismissDown']; }}
+        >
+          <div class="dialog help-dialog">
+            <div class="dialog-header">
+              <h3>Help &amp; Shortcuts</h3>
+            </div>
+            ${this._renderHelp()}
+          </div>
+        </div>
+      ` : ''}
+    `;
+  }
+
+  private _renderHelp() {
+    const globalShortcut = formatAccelerator(this._shortcut || shortcut.get());
+    return html`
+      <div class="help-content">
+        <div class="help-section">
+          <div class="help-section-title">Keyboard Shortcuts</div>
+          <div class="shortcut-row"><span class="shortcut-key">${globalShortcut}</span><span class="shortcut-desc">Open / show Pastry (global, configurable)</span></div>
+          <div class="shortcut-row"><span class="shortcut-key">↑ ↓</span><span class="shortcut-desc">Navigate items</span></div>
+          <div class="shortcut-row"><span class="shortcut-key">← →</span><span class="shortcut-desc">Switch between History and Pins panel</span></div>
+          <div class="shortcut-row"><span class="shortcut-key">Enter</span><span class="shortcut-desc">Paste selected item into last active app</span></div>
+          <div class="shortcut-row"><span class="shortcut-key">⌘C</span><span class="shortcut-desc">Copy selected item to clipboard</span></div>
+          <div class="shortcut-row"><span class="shortcut-key">⌘N</span><span class="shortcut-desc">Create a new pin from scratch</span></div>
+          <div class="shortcut-row"><span class="shortcut-key">⌘E</span><span class="shortcut-desc">Edit the most recently added pin</span></div>
+          <div class="shortcut-row"><span class="shortcut-key">Esc</span><span class="shortcut-desc">Close / hide the window</span></div>
+        </div>
+        <div class="help-section">
+          <div class="help-section-title">Features</div>
+          <div class="feature-row"><span class="feature-name">History</span><span class="shortcut-desc">Automatically captures everything you copy, up to the configured limit</span></div>
+          <div class="feature-row"><span class="feature-name">Pins</span><span class="shortcut-desc">Save frequently used snippets, images, or rich text permanently</span></div>
+          <div class="feature-row"><span class="feature-name">Search</span><span class="shortcut-desc">Type anything to instantly filter both history and pins</span></div>
+          <div class="feature-row"><span class="feature-name">Tags</span><span class="shortcut-desc">Label pins with tags to organise and filter them</span></div>
+          <div class="feature-row"><span class="feature-name">Reminders</span><span class="shortcut-desc">Set a time-based reminder on any pinned item</span></div>
+          <div class="feature-row"><span class="feature-name">Images</span><span class="shortcut-desc">History and pins support images, not just text</span></div>
+          <div class="feature-row"><span class="feature-name">Rich text</span><span class="shortcut-desc">HTML/rich formatting is preserved when pasting</span></div>
+        </div>
+      </div>
+      <div class="help-actions">
+        <button class="cancel" @click=${() => { this._showHelp = false; }}>Close</button>
+      </div>
+    `;
+  }
+
+  private _renderSettings() {
+    return html`
 
           <div class="field">
             <label>History size (1–200)</label>
@@ -423,8 +576,6 @@ tccutil reset Accessibility com.anatoli.pastry</div>
             ` : ''}
           </div>
           <div class="made-by">made by Anatoli Radulov</div>
-        </div>
-      </div>
     `;
   }
 }

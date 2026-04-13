@@ -162,6 +162,7 @@ export function pinItem(entry: ClipboardEntry, name: string, tags: string[] = []
     name: trimmedName,
     pinnedAt: Date.now(),
     imageDataUrl: entry.imageDataUrl,
+    htmlContent: entry.htmlContent,
     tags: tags.length > 0 ? tags : undefined,
   };
   pinnedItems.update((prev) => [pinned, ...prev]);
@@ -191,12 +192,13 @@ export function unpinItem(id: string): void {
 /**
  * Update an existing pinned entry's name and/or text.
  */
-export function updatePinnedItem(id: string, name: string, text: string, tags?: string[]): void {
+export function updatePinnedItem(id: string, name: string, text: string, tags?: string[], htmlContent?: string): void {
   pinnedItems.update((prev) =>
     prev.map((e) => (e.id === id ? {
       ...e,
       name: name.trim() || e.name,
       text: text.trim() || e.text,
+      htmlContent: htmlContent !== undefined ? htmlContent : e.htmlContent,
       tags: tags !== undefined ? (tags.length > 0 ? tags : undefined) : e.tags,
     } : e)),
   );
