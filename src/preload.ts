@@ -63,6 +63,32 @@ const api: PastryAPI = {
     ipcRenderer.once('image-preview:data', handler);
     return () => ipcRenderer.removeListener('image-preview:data', handler);
   },
+
+  setReminder(data: { pinId: string; label: string; reminderAt: number }): void {
+    ipcRenderer.send('reminder:set', data);
+  },
+
+  cancelReminder(pinId: string): void {
+    ipcRenderer.send('reminder:cancel', pinId);
+  },
+
+  onReminderData(callback) {
+    const handler = (_event: Electron.IpcRendererEvent, payload: { label: string; pinId: string }) =>
+      callback(payload);
+    ipcRenderer.once('reminder:data', handler);
+    return () => ipcRenderer.removeListener('reminder:data', handler);
+  },
+
+  snoozeReminder(data: { pinId: string; label: string; snoozeMs: number }): void {
+    ipcRenderer.send('reminder:snooze', data);
+  },
+
+  onReminderSnoozed(callback) {
+    const handler = (_event: Electron.IpcRendererEvent, payload: { pinId: string; reminderAt: number }) =>
+      callback(payload);
+    ipcRenderer.on('reminder:snoozed', handler);
+    return () => ipcRenderer.removeListener('reminder:snoozed', handler);
+  },
 };
 
 contextBridge.exposeInMainWorld('pastryAPI', api);

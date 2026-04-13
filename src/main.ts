@@ -16,6 +16,7 @@ let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let previousApp = '';
 let currentShortcut = GLOBAL_SHORTCUT;
+const reminderTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
 function drawScissors(size: number, rgb: [number, number, number] = [0, 0, 0]): Buffer {
   const buf = Buffer.alloc(size * size * 4, 0);
@@ -344,6 +345,139 @@ function toggleWindow(): void {
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
+// Reminder popup window
+// ---------------------------------------------------------------------------
+
+const REMINDER_HTML = `<!DOCTYPE html>
+<html><head>
+<meta charset="utf-8">
+<style>
+  html, body {
+    margin: 0; padding: 0; width: 100%; height: 100vh;
+    background: #1e1e1e; display: flex; flex-direction: column;
+    overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+  #titlebar {
+    -webkit-app-region: drag;
+    height: 28px; background: #2a2a2a; display: flex; align-items: center;
+    padding: 0 14px; flex-shrink: 0; font-size: 12px; font-weight: 600;
+    color: #aaa; border-bottom: 1px solid #3a3a3a; box-sizing: border-box; gap: 6px;
+  }
+  #body {
+    flex: 1; display: flex; flex-direction: column; align-items: center;
+    justify-content: center; padding: 14px 20px; gap: 12px;
+  }
+  #label {
+    font-size: 15px; font-weight: 600; color: #e8e8e8; text-align: center;
+    word-break: break-word; max-width: 320px;
+  }
+  #snooze-row {
+    display: flex; gap: 6px; flex-wrap: wrap; justify-content: center;
+  }
+  .snooze-btn {
+    -webkit-app-region: no-drag;
+    background: #2e2e2e; border: 1px solid #444; border-radius: 5px; color: #ccc;
+    cursor: pointer; font-size: 11px; font-weight: 600; padding: 5px 10px;
+    transition: background 0.1s, color 0.1s;
+  }
+  .snooze-btn:hover { background: #3a3a3a; color: #fff; }
+  #dismiss {
+    -webkit-app-region: no-drag;
+    background: #4c8ef7; border: none; border-radius: 6px; color: #fff;
+    cursor: pointer; font-size: 13px; font-weight: 600; padding: 7px 22px;
+    transition: background 0.1s;
+  }
+  #dismiss:hover { background: #6aa0ff; }
+  #snooze-label {
+    font-size: 10px; color: #666; letter-spacing: 0.04em; text-transform: uppercase;
+  }
+</style>
+</head><body>
+<div id="titlebar"><span>&#128276;</span><span>Reminder</span></div>
+<div id="body">
+  <div id="label"></div>
+  <button id="dismiss" onclick="window.close()">Dismiss</button>
+  <div id="snooze-label">Snooze</div>
+  <div id="snooze-row">
+    <button class="snooze-btn" data-ms="300000">5 min</button>
+    <button class="snooze-btn" data-ms="600000">10 min</button>
+    <button class="snooze-btn" data-ms="1800000">30 min</button>
+    <button class="snooze-btn" data-ms="3600000">1 hr</button>
+    <button class="snooze-btn" data-ms="tomorrow">Tomorrow</button>
+  </div>
+</div>
+<script>
+  if (window.pastryAPI && window.pastryAPI.onReminderData) {
+    window.pastryAPI.onReminderData(function(data) {
+      document.getElementById('label').textContent = data.label;
+      document.title = 'Reminder - ' + data.label;
+      document.querySelectorAll('.snooze-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          var raw = btn.getAttribute('data-ms');
+          var snoozeMs;
+          if (raw === 'tomorrow') {
+            var t = new Date(); t.setDate(t.getDate() + 1); t.setHours(9, 0, 0, 0);
+            snoozeMs = t.getTime() - Date.now();
+          } else {
+            snoozeMs = parseInt(raw, 10);
+          }
+          window.pastryAPI.snoozeReminder({ pinId: data.pinId, label: data.label, snoozeMs: snoozeMs });
+          window.close();
+        });
+      });
+    });
+  }
+</script>
+</body></html>`;
+
+function openReminderWindow(label: string, pinId: string): void {
+  reminderTimers.delete(pinId);
+  const win = new BrowserWindow({
+    width: 380,
+    height: 220,
+    resizable: false,
+    title: `Reminder - ${label}`,
+    show: false,
+    alwaysOnTop: true,
+    frame: false,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  });
+  win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(REMINDER_HTML)}`);
+  win.webContents.once('did-finish-load', () => {
+    win.webContents.send('reminder:data', { label, pinId });
+    win.show();
+  });
+}
+
+ipcMain.on('reminder:set', (_event, data: { pinId: string; label: string; reminderAt: number }) => {
+  const existing = reminderTimers.get(data.pinId);
+  if (existing !== undefined) clearTimeout(existing);
+  const delay = data.reminderAt - Date.now();
+  if (delay <= 0) return; // already past, skip silently
+  const timer = setTimeout(() => openReminderWindow(data.label, data.pinId), delay);
+  reminderTimers.set(data.pinId, timer);
+});
+
+ipcMain.on('reminder:cancel', (_event, pinId: string) => {
+  const existing = reminderTimers.get(pinId);
+  if (existing !== undefined) clearTimeout(existing);
+  reminderTimers.delete(pinId);
+});
+
+ipcMain.on('reminder:snooze', (_event, data: { pinId: string; label: string; snoozeMs: number }) => {
+  const existing = reminderTimers.get(data.pinId);
+  if (existing !== undefined) clearTimeout(existing);
+  const newReminderAt = Date.now() + data.snoozeMs;
+  const timer = setTimeout(() => openReminderWindow(data.label, data.pinId), data.snoozeMs);
+  reminderTimers.set(data.pinId, timer);
+  mainWindow?.webContents.send('reminder:snoozed', { pinId: data.pinId, reminderAt: newReminderAt });
+});
+
+// ---------------------------------------------------------------------------
 // Image preview window
 // ---------------------------------------------------------------------------
 
@@ -451,10 +585,20 @@ app.on('ready', () => {
 
 app.on('will-quit', () => {
   globalShortcut.unregisterAll();
+  for (const timer of reminderTimers.values()) clearTimeout(timer);
+  reminderTimers.clear();
 });
 
 // Keep the app running in the background even when all windows are closed.
 app.on('window-all-closed', () => {
   // Do not quit — the window is hidden, not destroyed.
+});
+
+// Show the window when the user clicks the dock icon (macOS).
+app.on('activate', () => {
+  if (mainWindow && !mainWindow.isVisible()) {
+    mainWindow.show();
+    mainWindow.focus();
+  }
 });
 

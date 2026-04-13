@@ -19,6 +19,11 @@ export interface PastryAPI {
   notifyHistoryDeleted: (payload: ClipboardPayload) => void;
   openImagePreview: (dataUrl: string, title: string) => void;
   onImagePreviewData: (callback: (payload: { dataUrl: string; title: string }) => void) => () => void;
+  setReminder: (data: { pinId: string; label: string; reminderAt: number }) => void;
+  cancelReminder: (pinId: string) => void;
+  onReminderData: (callback: (payload: { label: string; pinId: string }) => void) => () => void;
+  snoozeReminder: (data: { pinId: string; label: string; snoozeMs: number }) => void;
+  onReminderSnoozed: (callback: (payload: { pinId: string; reminderAt: number }) => void) => () => void;
 }
 
 export interface PastryStore {

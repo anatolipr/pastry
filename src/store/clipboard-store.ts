@@ -37,6 +37,16 @@ export const deleteTarget = new Signal<ClipboardEntry | null>(null, 'deleteTarge
 /** Whether the "new pin" dialog (create from scratch) is open. */
 export const isNewPinOpen = new Signal<boolean>(false, 'isNewPinOpen');
 
+/** The pinned entry whose reminder is being configured (drives reminder-dialog). */
+export const reminderTarget = new Signal<PinnedEntry | null>(null, 'reminderTarget');
+
+/** Callback-mode reminder dialog — used when no pin exists yet (e.g. new-pin flow). */
+export const reminderCallbackTarget = new Signal<{
+  label: string;
+  initial?: number;
+  callback: (ts: number | null) => void;
+} | null>(null, 'reminderCallbackTarget');
+
 // ---------------------------------------------------------------------------
 // Derived / computed
 // ---------------------------------------------------------------------------
@@ -59,6 +69,11 @@ export const isEditDialogOpen = new Computed<boolean>(
 export const isDeleteDialogOpen = new Computed<boolean>(
   () => deleteTarget.get() !== null,
   'isDeleteDialogOpen',
+);
+
+export const isReminderDialogOpen = new Computed<boolean>(
+  () => reminderTarget.get() !== null || reminderCallbackTarget.get() !== null,
+  'isReminderDialogOpen',
 );
 
 export const filteredHistory = new Computed<ClipboardEntry[]>(() => {
@@ -213,12 +228,47 @@ export function setNewPinOpen(open: boolean): void {
   isNewPinOpen.set(open);
 }
 
+export function openReminderDialog(entry: PinnedEntry): void {
+  reminderTarget.set(entry);
+}
+
+export function openReminderDialogCallback(
+  label: string,
+  initial: number | undefined,
+  callback: (ts: number | null) => void,
+): void {
+  reminderCallbackTarget.set({ label, initial, callback });
+}
+
+export function closeReminderDialog(): void {
+  reminderTarget.set(null);
+  reminderCallbackTarget.set(null);
+}
+
+export function setReminderOnPin(pinId: string, reminderAtMs: number): void {
+  const pin = pinnedItems.get().find((p) => p.id === pinId);
+  if (!pin) return;
+  pinnedItems.update((prev) =>
+    prev.map((p) => (p.id === pinId ? { ...p, reminderAt: reminderAtMs } : p)),
+  );
+  window.pastryAPI.setReminder({ pinId, label: pin.name, reminderAt: reminderAtMs });
+  persistStore();
+}
+
+export function clearReminderOnPin(pinId: string): void {
+  pinnedItems.update((prev) =>
+    prev.map((p) => (p.id === pinId ? { ...p, reminderAt: undefined } : p)),
+  );
+  window.pastryAPI.cancelReminder(pinId);
+  persistStore();
+}
+
 /**
  * Directly create a new pinned entry from scratch (not from clipboard history).
  */
-export function pinNewItem(text: string, name: string, tags: string[] = []): void {
+export function pinNewItem(text: string, name: string, tags: string[] = []): string {
   const trimmedText = text.trim();
-  if (!trimmedText) return;
+  if (!trimmedText) return '';
   const trimmedName = name.trim() || trimmedText.slice(0, 30);
   const pinned: PinnedEntry = {
     id: crypto.randomUUID(),
@@ -230,6 +280,7 @@ export function pinNewItem(text: string, name: string, tags: string[] = []): voi
   pinnedItems.update((prev) => [pinned, ...prev]);
   isNewPinOpen.set(false);
   persistStore();
+  return pinned.id;
 }
 
 export function deleteHistoryItem(id: string): void {
@@ -441,5 +492,19 @@ export async function loadPersistedStore(): Promise<void> {
   if (typeof data.historySize === 'number') historySize.set(data.historySize);
   if (typeof data.shortcut === 'string' && data.shortcut) shortcut.set(data.shortcut);
   if (data.themeMode === 'dark' || data.themeMode === 'light' || data.themeMode === 'auto') themeMode.set(data.themeMode);
+  // Re-register any future reminders so timers fire even after a restart.
+  const now = Date.now();
+  for (const pin of pinnedItems.get()) {
+    if (typeof pin.reminderAt === 'number' && pin.reminderAt > now) {
+      window.pastryAPI.setReminder({ pinId: pin.id, label: pin.name, reminderAt: pin.reminderAt });
+    }
+  }
+  // Keep pinnedItems in sync when a snooze is confirmed from a popup window.
+  window.pastryAPI.onReminderSnoozed(({ pinId, reminderAt }) => {
+    pinnedItems.update((prev) =>
+      prev.map((p) => (p.id === pinId ? { ...p, reminderAt } : p)),
+    );
+    persistStore();
+  });
 }
 

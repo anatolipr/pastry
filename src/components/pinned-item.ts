@@ -2,7 +2,7 @@ import { LitElement, html, css } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { SignalWatcher } from 'avosignals';
 import type { PinnedEntry } from '../shared-types';
-import { setUnpinTarget, setEditTarget, addToHistory } from '../store/clipboard-store';
+import { setUnpinTarget, setEditTarget, addToHistory, openReminderDialog } from '../store/clipboard-store';
 
 @customElement('pinned-item')
 export class PinnedItem extends LitElement {
@@ -105,12 +105,24 @@ export class PinnedItem extends LitElement {
     button.edit:hover {
       background: var(--bg-active-history);
     }
+    button.remind {
+      color: var(--accent-pinned);
+      border-color: var(--accent-pinned);
+    }
+    button.remind:hover {
+      background: var(--bg-active-pinned);
+    }
     button.unpin {
       color: var(--accent-danger);
       border-color: var(--accent-danger);
     }
     button.unpin:hover {
       background: var(--bg-active-history);
+    }
+    .reminder-badge {
+      font-size: 11px;
+      margin-left: 4px;
+      cursor: default;
     }
   `;
 
@@ -138,6 +150,10 @@ export class PinnedItem extends LitElement {
     setUnpinTarget(this.entry);
   }
 
+  private _handleReminder(): void {
+    openReminderDialog(this.entry);
+  }
+
   private _handleImagePreview(e: Event): void {
     e.stopPropagation();
     window.pastryAPI.openImagePreview(this.entry.imageDataUrl!, this.entry.name || 'Image');
@@ -148,10 +164,17 @@ export class PinnedItem extends LitElement {
     const preview = isImage
       ? html`<div class="thumbnail"><img src=${this.entry.imageDataUrl!} @click=${this._handleImagePreview} /></div>`
       : html`<div class="text" title=${this.entry.text}>${this.entry.text}</div>`;
+    const hasReminder = Boolean(this.entry.reminderAt && this.entry.reminderAt > Date.now());
+    const reminderTitle = hasReminder
+      ? `Reminder: ${new Date(this.entry.reminderAt!).toLocaleString()}`
+      : '';
     return html`
       <div class="row ${this.active ? 'active' : ''}" @click=${this._handlePaste}>
         <div class="info">
-          <div class="name">${this.entry.name}</div>
+          <div class="name">
+            ${this.entry.name}
+            ${hasReminder ? html`<span class="reminder-badge" title=${reminderTitle}>🔔</span>` : ''}
+          </div>
           ${preview}
           ${this.entry.tags && this.entry.tags.length > 0 ? html`
             <div class="tags">${this.entry.tags.map((t) => html`<span class="tag">${t}</span>`)}</div>
@@ -161,6 +184,7 @@ export class PinnedItem extends LitElement {
           <button @click=${this._handleCopy}>Copy</button>
           <button @click=${this._handlePaste}>Paste</button>
           <button class="edit" @click=${this._handleEdit}>Edit</button>
+          <button class="remind" @click=${this._handleReminder}>Remind</button>
           <button class="unpin" @click=${this._handleUnpin}>Unpin</button>
         </div>
       </div>

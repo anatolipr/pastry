@@ -2,8 +2,9 @@ import { LitElement, html, css } from 'lit';
 import { customElement, query } from 'lit/decorators.js';
 import { SignalWatcher } from 'avosignals';
 import {
-  isPinDialogOpen, isUnpinDialogOpen, isEditDialogOpen, isDeleteDialogOpen, isSettingsOpen, isNewPinOpen,
+  isPinDialogOpen, isUnpinDialogOpen, isEditDialogOpen, isDeleteDialogOpen, isSettingsOpen, isNewPinOpen, isReminderDialogOpen,
   searchQuery, activeItem, combinedItems, moveActiveIndexInPanel, moveActivePanel, setActiveIndex,
+  setNewPinOpen, setEditTarget, pinnedItems,
 } from '../store/clipboard-store';
 import './history-list';
 import './pinned-list';
@@ -14,6 +15,7 @@ import './edit-dialog';
 import './delete-dialog';
 import './settings-dialog';
 import './new-pin-dialog';
+import './reminder-dialog';
 
 @customElement('pastry-app')
 export class PastryApp extends LitElement {
@@ -135,8 +137,25 @@ export class PastryApp extends LitElement {
   };
 
   private _onKeyDown = (e: KeyboardEvent): void => {
+    // Cmd+N: open new pin dialog (works even if another dialog is open, skip if already open)
+    if ((e.metaKey || e.ctrlKey) && e.key === 'n' && !isNewPinOpen.get()) {
+      e.preventDefault();
+      setNewPinOpen(true);
+      return;
+    }
+
+    // Cmd+E: edit the last added pin
+    if ((e.metaKey || e.ctrlKey) && e.key === 'e') {
+      const last = pinnedItems.get()[0] ?? null;
+      if (last) {
+        e.preventDefault();
+        setEditTarget(last);
+        return;
+      }
+    }
+
     // Don't intercept when a dialog is open or user is editing pinned item text.
-    if (isPinDialogOpen.get() || isUnpinDialogOpen.get() || isEditDialogOpen.get() || isDeleteDialogOpen.get() || isSettingsOpen.get() || isNewPinOpen.get()) return;
+    if (isPinDialogOpen.get() || isUnpinDialogOpen.get() || isEditDialogOpen.get() || isDeleteDialogOpen.get() || isSettingsOpen.get() || isNewPinOpen.get() || isReminderDialogOpen.get()) return;
 
     // If search is not focused and user types an alphanumeric character (no modifiers),
     // focus the search input and let the keystroke land in it naturally.
@@ -260,6 +279,7 @@ export class PastryApp extends LitElement {
       ${isEditDialogOpen.get() ? html`<edit-dialog></edit-dialog>` : ''}
       ${isDeleteDialogOpen.get() ? html`<delete-dialog></delete-dialog>` : ''}
       ${isNewPinOpen.get() ? html`<new-pin-dialog></new-pin-dialog>` : ''}
+      ${isReminderDialogOpen.get() ? html`<reminder-dialog></reminder-dialog>` : ''}
       ${isSettingsOpen.get() ? html`<settings-dialog></settings-dialog>` : ''}
     `;
   }

@@ -1,7 +1,7 @@
 import { LitElement, html, css } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { SignalWatcher } from 'avosignals';
-import { editTarget, isEditDialogOpen, updatePinnedItem, setEditTarget, allTags } from '../store/clipboard-store';
+import { editTarget, isEditDialogOpen, updatePinnedItem, setEditTarget, allTags, openReminderDialog } from '../store/clipboard-store';
 
 @customElement('edit-dialog')
 export class EditDialog extends LitElement {
@@ -35,6 +35,11 @@ export class EditDialog extends LitElement {
     }
     input:focus, textarea:focus { border-color: var(--accent-history); }
     textarea { resize: vertical; min-height: 72px; font-family: inherit; }
+    .image-preview {
+      margin-bottom: 14px; border-radius: 5px; overflow: hidden;
+      border: 1px solid var(--border-soft); display: inline-block;
+    }
+    .image-preview img { max-height: 80px; max-width: 312px; object-fit: contain; display: block; }
     .actions { display: flex; justify-content: flex-end; gap: 8px; }
     button {
       border-radius: 5px; cursor: pointer; font-size: 12px;
@@ -42,6 +47,8 @@ export class EditDialog extends LitElement {
     }
     .cancel { background: transparent; color: var(--text-secondary); }
     .cancel:hover { background: var(--bg-hover); }
+    .remind { background: transparent; color: var(--accent-pinned); border-color: var(--accent-pinned); }
+    .remind:hover { background: var(--bg-active-pinned); }
     .confirm { background: var(--save-btn-bg); color: var(--save-btn-color); border-color: var(--save-btn-bg); font-weight: 600; }
     .confirm:hover { background: var(--save-btn-hover); }
     .tag-field {
@@ -137,12 +144,15 @@ export class EditDialog extends LitElement {
   render() {
     if (!isEditDialogOpen.get()) return html``;
     this._seed();
+    const entry = editTarget.get()!;
+    const hasReminder = Boolean(entry.reminderAt && entry.reminderAt > Date.now());
+    const isImage = Boolean(entry.imageDataUrl);
     return html`
       <div class="overlay"
         @mousedown=${(e: MouseEvent) => { if (e.target === e.currentTarget) (e.currentTarget as HTMLElement).dataset['dismissDown'] = '1'; }}
         @mouseup=${(e: MouseEvent) => { const el = e.currentTarget as HTMLElement; if (e.target === el && el.dataset['dismissDown']) this._handleCancel(); delete el.dataset['dismissDown']; }}>
         <div class="dialog">
-          <h3>Edit Pinned Item</h3>
+          <h3>Edit Pinned Item${hasReminder ? html` <span title="Reminder set">🔔</span>` : ''}</h3>
           <label>Label</label>
           <input type="text" .value=${this._name}
             @input=${(e: Event) => { this._name = (e.target as HTMLInputElement).value; }}
@@ -167,13 +177,17 @@ export class EditDialog extends LitElement {
                   <div class="suggestion" @mousedown=${(e: Event) => { e.preventDefault(); this._addTag(s); }}>${s}</div>`)}
               </div>` : ''}
           </div>
-          <label>Value</label>
-          <textarea .value=${this._text}
-            @input=${(e: Event) => { this._text = (e.target as HTMLTextAreaElement).value; }}
-            placeholder="Clipboard value"
-            @keydown=${(e: KeyboardEvent) => { if (e.key === 'Escape') this._handleCancel(); }}
-          ></textarea>
+          ${isImage
+            ? html`<div class="image-preview"><img src=${entry.imageDataUrl!} alt=${entry.name || 'Image'} /></div>`
+            : html`
+              <label>Value</label>
+              <textarea .value=${this._text}
+                @input=${(e: Event) => { this._text = (e.target as HTMLTextAreaElement).value; }}
+                placeholder="Clipboard value"
+                @keydown=${(e: KeyboardEvent) => { if (e.key === 'Escape') this._handleCancel(); }}
+              ></textarea>`}
           <div class="actions">
+            <button class="remind" @click=${() => openReminderDialog(entry)}>🔔 Remind</button>
             <button class="cancel" @click=${this._handleCancel}>Cancel</button>
             <button class="confirm" @click=${this._handleConfirm}>Save</button>
           </div>

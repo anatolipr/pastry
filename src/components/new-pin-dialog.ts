@@ -1,7 +1,7 @@
 import { LitElement, html, css } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { SignalWatcher } from 'avosignals';
-import { isNewPinOpen, setNewPinOpen, pinNewItem, allTags } from '../store/clipboard-store';
+import { isNewPinOpen, setNewPinOpen, pinNewItem, allTags, openReminderDialogCallback, setReminderOnPin } from '../store/clipboard-store';
 
 @customElement('new-pin-dialog')
 export class NewPinDialog extends LitElement {
@@ -12,6 +12,16 @@ export class NewPinDialog extends LitElement {
   @state() private _tags: string[] = [];
   @state() private _tagInput = '';
   @state() private _tagSuggestions: string[] = [];
+  @state() private _reminderAt: number | null = null;
+  private _wasOpen = false;
+
+  updated() {
+    const isOpen = isNewPinOpen.get();
+    if (isOpen && !this._wasOpen) {
+      this.shadowRoot?.querySelector<HTMLTextAreaElement>('textarea')?.focus();
+    }
+    this._wasOpen = isOpen;
+  }
 
   static styles = css`
     :host { display: contents; }
@@ -48,9 +58,21 @@ export class NewPinDialog extends LitElement {
     }
     .cancel { background: transparent; color: var(--text-secondary); }
     .cancel:hover { background: var(--bg-hover); }
+    .remind { background: transparent; color: var(--accent-pinned); border-color: var(--accent-pinned); }
+    .remind:hover { background: var(--bg-active-pinned); }
     .confirm { background: var(--accent-pinned); color: #1a1a1e; border-color: var(--accent-pinned); font-weight: 600; }
     .confirm:hover { opacity: 0.85; }
     .confirm:disabled { opacity: 0.4; cursor: default; }
+    .reminder-preview {
+      font-size: 11px; color: var(--accent-pinned); margin-bottom: 14px;
+      padding: 5px 8px; background: var(--bg-active-pinned);
+      border-radius: 4px; border: 1px solid var(--accent-pinned);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .reminder-preview button {
+      background: none; border: none; color: var(--accent-danger); cursor: pointer;
+      font-size: 12px; padding: 0 0 0 8px; border-radius: 0;
+    }
     .tag-field {
       display: flex; flex-wrap: wrap; align-items: center; gap: 5px;
       background: var(--bg-input); border: 1px solid var(--border-input-strong);
@@ -115,7 +137,8 @@ export class NewPinDialog extends LitElement {
   private _handleConfirm(): void {
     if (!this._text.trim()) return;
     if (this._tagInput.trim()) this._addTag(this._tagInput);
-    pinNewItem(this._text, this._name, this._tags);
+    const id = pinNewItem(this._text, this._name, this._tags);
+    if (id && this._reminderAt) setReminderOnPin(id, this._reminderAt);
     this._reset();
   }
 
@@ -130,6 +153,7 @@ export class NewPinDialog extends LitElement {
     this._tags = [];
     this._tagInput = '';
     this._tagSuggestions = [];
+    this._reminderAt = null;
   }
 
   render() {
@@ -177,7 +201,18 @@ export class NewPinDialog extends LitElement {
                   <div class="suggestion" @mousedown=${(e: Event) => { e.preventDefault(); this._addTag(s); }}>${s}</div>`)}
               </div>` : ''}
           </div>
+          ${this._reminderAt ? html`
+            <div class="reminder-preview">
+              <span>🔔 ${new Date(this._reminderAt).toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</span>
+              <button @click=${() => { this._reminderAt = null; }}>✕</button>
+            </div>
+          ` : ''}
           <div class="actions">
+            <button class="remind" @click=${() => openReminderDialogCallback(
+              this._name.trim() || this._text.trim().slice(0, 30) || 'New pin',
+              this._reminderAt ?? undefined,
+              (ts) => { this._reminderAt = ts; },
+            )}>🔔 Remind</button>
             <button class="cancel" @click=${this._handleCancel}>Cancel</button>
             <button class="confirm" ?disabled=${!this._text.trim()} @click=${this._handleConfirm}>Pin</button>
           </div>

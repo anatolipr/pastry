@@ -14,4 +14,5 @@ export interface PinnedEntry {
   imageDataUrl?: string;
   htmlContent?: string;
   tags?: string[];
+  reminderAt?: number; // UTC ms timestamp for scheduled reminder
 }
