@@ -1,15 +1,19 @@
 import { LitElement, html, css } from 'lit';
-import { customElement, state } from 'lit/decorators.js';
+import { customElement } from 'lit/decorators.js';
 import { SignalWatcher } from 'avosignals';
-import { filteredPinned, filteredHistory, activeIndex, exportSelectedPins, copySelectedPinsToClipboard, importPins, allTags, tagFilter, setTagFilter, setNewPinOpen } from '../store/clipboard-store';
+import {
+  filteredPinned, filteredHistory, activeIndex,
+  isExportMode, selectedPinExportIds, selectedHistoryExportIds,
+  enterExportMode, cancelExportMode,
+  togglePinExportItem, togglePinExportAll,
+  exportCombined, copySelectedCombined,
+  importPins, allTags, tagFilter, setTagFilter, setNewPinOpen,
+} from '../store/clipboard-store';
 import './pinned-item';
 
 @customElement('pinned-list')
 export class PinnedList extends LitElement {
   private watcher = new SignalWatcher(this);
-
-  @state() private exportMode = false;
-  @state() private selectedIds = new Set<string>();
 
   static styles = css`
     :host {
@@ -171,59 +175,34 @@ export class PinnedList extends LitElement {
     }
   `;
 
-  private get allIds() {
+  private get allPinIds() {
     return filteredPinned.get().map((p) => p.id);
   }
 
-  private get allSelected() {
-    const ids = this.allIds;
-    return ids.length > 0 && ids.every((id) => this.selectedIds.has(id));
+  private get allPinsSelected() {
+    const ids = this.allPinIds;
+    return ids.length > 0 && ids.every((id) => selectedPinExportIds.get().has(id));
   }
 
-  private toggleSelectAll() {
-    if (this.allSelected) {
-      this.selectedIds = new Set();
-    } else {
-      this.selectedIds = new Set(this.allIds);
-    }
+  private _toggleSelectAll() {
+    togglePinExportAll(!this.allPinsSelected);
   }
 
-  private toggleItem(id: string) {
-    const next = new Set(this.selectedIds);
-    if (next.has(id)) next.delete(id);
-    else next.add(id);
-    this.selectedIds = next;
+  private _toggleItem(id: string) {
+    togglePinExportItem(id);
   }
 
-  private enterExportMode() {
-    this.exportMode = true;
-    this.selectedIds = new Set();
+  private async _doExport() {
+    const ok = await exportCombined();
+    if (ok) cancelExportMode();
   }
 
-  private cancelExportMode() {
-    this.exportMode = false;
-    this.selectedIds = new Set();
+  private _doCopy() {
+    copySelectedCombined();
+    cancelExportMode();
   }
 
-  private async doExport() {
-    const ids = [...this.selectedIds];
-    if (ids.length === 0) return;
-    const ok = await exportSelectedPins(ids);
-    if (ok) {
-      this.exportMode = false;
-      this.selectedIds = new Set();
-    }
-  }
-
-  private doCopy() {
-    const ids = [...this.selectedIds];
-    if (ids.length === 0) return;
-    copySelectedPinsToClipboard(ids);
-    this.exportMode = false;
-    this.selectedIds = new Set();
-  }
-
-  private async doImport() {
+  private async _doImport() {
     await importPins();
   }
 
@@ -243,24 +222,29 @@ export class PinnedList extends LitElement {
     const tags = allTags.get();
     const activeTags = tagFilter.get();
 
+    const exportMode = isExportMode.get();
+    const pinSelected = selectedPinExportIds.get();
+    const histSelected = selectedHistoryExportIds.get();
+    const totalSelected = pinSelected.size + histSelected.size;
+
     return html`
       <div class="header-row">
         <span class="header">Pinned Items</span>
-        ${this.exportMode
+        ${exportMode
           ? html`
-              <button class="btn btn-ghost" @click=${this.cancelExportMode}>Cancel</button>
-              <button                class="btn btn-copy"
-                ?disabled=${this.selectedIds.size === 0}
-                @click=${this.doCopy}
-              >Copy ${this.selectedIds.size > 0 ? `(${this.selectedIds.size})` : ''}</button>
-              <button                class="btn btn-primary"
-                ?disabled=${this.selectedIds.size === 0}
-                @click=${this.doExport}
-              >Export ${this.selectedIds.size > 0 ? `(${this.selectedIds.size})` : ''}</button>
+              <button class="btn btn-ghost" @click=${() => cancelExportMode()}>Cancel</button>
+              <button class="btn btn-copy"
+                ?disabled=${totalSelected === 0}
+                @click=${this._doCopy}
+              >Copy ${totalSelected > 0 ? `(${totalSelected})` : ''}</button>
+              <button class="btn btn-primary"
+                ?disabled=${totalSelected === 0}
+                @click=${this._doExport}
+              >Export ${totalSelected > 0 ? `(${totalSelected})` : ''}</button>
             `
           : html`
-              <button class="btn-import" @click=${this.doImport}>Import</button>
-              <button class="btn btn-ghost" @click=${this.enterExportMode}>Export</button>
+              <button class="btn-import" @click=${this._doImport}>Import</button>
+              <button class="btn btn-ghost" @click=${() => enterExportMode()}>Export</button>
               <button class="btn-new" title="New pin" @click=${() => setNewPinOpen(true)}>+</button>
             `}
       </div>
@@ -277,15 +261,15 @@ export class PinnedList extends LitElement {
         </div>
       ` : ''}
 
-      ${this.exportMode && items.length > 0 ? html`
+      ${exportMode && items.length > 0 ? html`
         <div class="select-all-row">
           <input
             type="checkbox"
-            id="select-all"
-            .checked=${this.allSelected}
-            @change=${this.toggleSelectAll}
+            id="select-all-pins"
+            .checked=${this.allPinsSelected}
+            @change=${this._toggleSelectAll}
           />
-          <label for="select-all">Select all</label>
+          <label for="select-all-pins">Select all</label>
         </div>
       ` : ''}
 
@@ -293,13 +277,13 @@ export class PinnedList extends LitElement {
         ${items.length === 0
           ? html`<div class="empty">No pins yet — click Pin on a history item</div>`
           : items.map((entry, i) => {
-              if (this.exportMode) {
+              if (exportMode) {
                 return html`
                   <div class="item-row">
                     <input
                       type="checkbox"
-                      .checked=${this.selectedIds.has(entry.id)}
-                      @change=${() => this.toggleItem(entry.id)}
+                      .checked=${pinSelected.has(entry.id)}
+                      @change=${() => this._toggleItem(entry.id)}
                     />
                     <pinned-item
                       .entry=${entry}

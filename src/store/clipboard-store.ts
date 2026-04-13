@@ -47,6 +47,15 @@ export const reminderCallbackTarget = new Signal<{
   callback: (ts: number | null) => void;
 } | null>(null, 'reminderCallbackTarget');
 
+/** Whether export/selection mode is active across both panels. */
+export const isExportMode = new Signal<boolean>(false, 'isExportMode');
+
+/** IDs of history entries selected for combined export/copy. */
+export const selectedHistoryExportIds = new Signal<Set<string>>(new Set(), 'selectedHistoryExportIds');
+
+/** IDs of pinned entries selected for combined export/copy. */
+export const selectedPinExportIds = new Signal<Set<string>>(new Set(), 'selectedPinExportIds');
+
 // ---------------------------------------------------------------------------
 // Derived / computed
 // ---------------------------------------------------------------------------
@@ -354,13 +363,47 @@ export function clearHistory(): void {
 export interface PastryExport {
   version: 1;
   pins: PinnedEntry[];
+  history?: ClipboardEntry[];
 }
 
-export async function exportSelectedPins(ids: string[]): Promise<boolean> {
-  const visible = filteredPinned.get();
-  const selected = visible.filter((p) => ids.includes(p.id));
-  const payload: PastryExport = { version: 1, pins: selected };
-  return window.pastryAPI.exportPins(payload);
+// ---------------------------------------------------------------------------
+// Combined export / copy (history + pins)
+// ---------------------------------------------------------------------------
+
+export function enterExportMode(): void {
+  isExportMode.set(true);
+  selectedHistoryExportIds.set(new Set());
+  selectedPinExportIds.set(new Set());
+}
+
+export function cancelExportMode(): void {
+  isExportMode.set(false);
+  selectedHistoryExportIds.set(new Set());
+  selectedPinExportIds.set(new Set());
+}
+
+export function toggleHistoryExportItem(id: string): void {
+  const next = new Set(selectedHistoryExportIds.get());
+  if (next.has(id)) next.delete(id); else next.add(id);
+  selectedHistoryExportIds.set(next);
+}
+
+export function toggleHistoryExportAll(selectAll: boolean): void {
+  selectedHistoryExportIds.set(
+    selectAll ? new Set(filteredHistory.get().map((e) => e.id)) : new Set(),
+  );
+}
+
+export function togglePinExportItem(id: string): void {
+  const next = new Set(selectedPinExportIds.get());
+  if (next.has(id)) next.delete(id); else next.add(id);
+  selectedPinExportIds.set(next);
+}
+
+export function togglePinExportAll(selectAll: boolean): void {
+  selectedPinExportIds.set(
+    selectAll ? new Set(filteredPinned.get().map((p) => p.id)) : new Set(),
+  );
 }
 
 function escapeHtml(text: string): string {
@@ -371,29 +414,41 @@ function escapeHtml(text: string): string {
     .replace(/"/g, '&quot;');
 }
 
-export function copySelectedPinsToClipboard(ids: string[]): void {
-  const visible = filteredPinned.get();
-  const selected = visible.filter((p) => ids.includes(p.id));
-  if (selected.length === 0) return;
+export async function exportCombined(): Promise<boolean> {
+  const histIds = selectedHistoryExportIds.get();
+  const pinIds = selectedPinExportIds.get();
+  const histItems = filteredHistory.get().filter((e) => histIds.has(e.id));
+  const pinItems = filteredPinned.get().filter((p) => pinIds.has(p.id));
+  const payload: PastryExport = {
+    version: 1,
+    pins: pinItems,
+    ...(histItems.length > 0 ? { history: histItems } : {}),
+  };
+  return window.pastryAPI.exportPins(payload);
+}
 
-  const hasRich = selected.some((e) => e.htmlContent || e.imageDataUrl);
+export function copySelectedCombined(): void {
+  const histIds = selectedHistoryExportIds.get();
+  const pinIds = selectedPinExportIds.get();
+  const histItems = filteredHistory.get().filter((e) => histIds.has(e.id));
+  const pinItems = filteredPinned.get().filter((p) => pinIds.has(p.id));
+  const allItems: Array<{ text: string; imageDataUrl?: string; htmlContent?: string }> = [
+    ...histItems,
+    ...pinItems,
+  ];
+  if (allItems.length === 0) return;
 
+  const hasRich = allItems.some((e) => e.htmlContent || e.imageDataUrl);
   if (!hasRich) {
-    const text = selected.map((e) => e.text).join('\n');
-    window.pastryAPI.writeClipboard(text);
+    window.pastryAPI.writeClipboard(allItems.map((e) => e.text).join('\n'));
   } else {
-    const htmlParts = selected.map((e) => {
-      if (e.imageDataUrl) {
-        return `<img src="${e.imageDataUrl}" alt="${escapeHtml(e.name || 'image')}" />`;
-      }
-      if (e.htmlContent) {
-        return e.htmlContent;
-      }
+    const htmlParts = allItems.map((e) => {
+      if (e.imageDataUrl) return `<img src="${e.imageDataUrl}" alt="image" />`;
+      if (e.htmlContent) return e.htmlContent;
       return `<p>${escapeHtml(e.text).replace(/\n/g, '<br>')}</p>`;
     });
-    const htmlContent = htmlParts.join('\n');
-    const text = selected.map((e) => e.text || '[image]').join('\n');
-    window.pastryAPI.writeRichClipboard({ text, htmlContent });
+    const text = allItems.map((e) => e.text || '[image]').join('\n');
+    window.pastryAPI.writeRichClipboard({ text, htmlContent: htmlParts.join('\n') });
   }
 }
 
@@ -401,22 +456,46 @@ export async function importPins(): Promise<void> {
   const raw = await window.pastryAPI.importPins();
   if (!raw || typeof raw !== 'object') return;
   const data = raw as PastryExport;
-  if (!Array.isArray(data.pins)) return;
-  const existing = pinnedItems.get();
-  const existingIds = new Set(existing.map((p) => p.id));
-  const toAdd = data.pins
-    .filter((p) => p && typeof p.id === 'string' && !existingIds.has(p.id))
-    .map((p): PinnedEntry => ({
-      id: p.id,
-      text: p.text ?? '',
-      name: p.name ?? 'Imported',
-      pinnedAt: p.pinnedAt ?? Date.now(),
-      imageDataUrl: p.imageDataUrl,
-      tags: Array.isArray(p.tags) && p.tags.length > 0 ? p.tags : undefined,
-    }));
-  if (toAdd.length === 0) return;
-  pinnedItems.set([...existing, ...toAdd]);
-  persistStore();
+  let changed = false;
+
+  if (Array.isArray(data.pins)) {
+    const existing = pinnedItems.get();
+    const existingIds = new Set(existing.map((p) => p.id));
+    const toAdd = data.pins
+      .filter((p) => p && typeof p.id === 'string' && !existingIds.has(p.id))
+      .map((p): PinnedEntry => ({
+        id: p.id,
+        text: p.text ?? '',
+        name: p.name ?? 'Imported',
+        pinnedAt: p.pinnedAt ?? Date.now(),
+        imageDataUrl: p.imageDataUrl,
+        tags: Array.isArray(p.tags) && p.tags.length > 0 ? p.tags : undefined,
+      }));
+    if (toAdd.length > 0) {
+      pinnedItems.set([...existing, ...toAdd]);
+      changed = true;
+    }
+  }
+
+  if (Array.isArray(data.history) && data.history.length > 0) {
+    const existing = clipboardHistory.get();
+    const existingIds = new Set(existing.map((e) => e.id));
+    const toAdd = data.history
+      .filter((e) => e && typeof e.id === 'string' && !existingIds.has(e.id))
+      .map((e): ClipboardEntry => ({
+        id: e.id,
+        text: e.text ?? '',
+        timestamp: e.timestamp ?? Date.now(),
+        imageDataUrl: e.imageDataUrl,
+        htmlContent: e.htmlContent,
+      }));
+    if (toAdd.length > 0) {
+      clipboardHistory.set([...existing, ...toAdd]);
+      changed = true;
+    }
+  }
+
+  if (changed) persistStore();
 }
 
 export function setActiveIndex(idx: number): void {
