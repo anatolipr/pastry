@@ -97,6 +97,11 @@ export class ClipboardItem extends LitElement {
     button.delete:hover {
       background: var(--bg-active-history);
     }
+    .richtext-badge {
+      font-size: 11px;
+      flex-shrink: 0;
+      cursor: default;
+    }
   `;
 
   private _formatTime(ts: number): string {
@@ -141,6 +146,7 @@ export class ClipboardItem extends LitElement {
     return html`
       <div class="row ${this.active ? 'active' : ''}" @click=${this._handlePaste}>
         ${content}
+        ${this.entry.htmlContent ? html`<span class="richtext-badge" title="Rich text / HTML">📝</span>` : ''}
         <span class="time">${this._formatTime(this.entry.timestamp)}</span>
         <div class="actions" @click=${(e: Event) => e.stopPropagation()}>
           <button @click=${this._handleCopy}>Copy</button>

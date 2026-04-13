@@ -1,7 +1,7 @@
 import { LitElement, html, css } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { SignalWatcher } from 'avosignals';
-import { filteredPinned, filteredHistory, activeIndex, exportSelectedPins, importPins, allTags, tagFilter, setTagFilter, setNewPinOpen } from '../store/clipboard-store';
+import { filteredPinned, filteredHistory, activeIndex, exportSelectedPins, copySelectedPinsToClipboard, importPins, allTags, tagFilter, setTagFilter, setNewPinOpen } from '../store/clipboard-store';
 import './pinned-item';
 
 @customElement('pinned-list')
@@ -53,6 +53,14 @@ export class PinnedList extends LitElement {
       color: var(--save-btn-color);
     }
     .btn-primary:disabled {
+      opacity: 0.4;
+      cursor: default;
+    }
+    .btn-copy {
+      background: var(--accent-pinned-bg, rgba(139,92,246,0.15));
+      color: var(--accent-pinned);
+    }
+    .btn-copy:disabled {
       opacity: 0.4;
       cursor: default;
     }
@@ -207,6 +215,14 @@ export class PinnedList extends LitElement {
     }
   }
 
+  private doCopy() {
+    const ids = [...this.selectedIds];
+    if (ids.length === 0) return;
+    copySelectedPinsToClipboard(ids);
+    this.exportMode = false;
+    this.selectedIds = new Set();
+  }
+
   private async doImport() {
     await importPins();
   }
@@ -233,8 +249,11 @@ export class PinnedList extends LitElement {
         ${this.exportMode
           ? html`
               <button class="btn btn-ghost" @click=${this.cancelExportMode}>Cancel</button>
-              <button
-                class="btn btn-primary"
+              <button                class="btn btn-copy"
+                ?disabled=${this.selectedIds.size === 0}
+                @click=${this.doCopy}
+              >Copy ${this.selectedIds.size > 0 ? `(${this.selectedIds.size})` : ''}</button>
+              <button                class="btn btn-primary"
                 ?disabled=${this.selectedIds.size === 0}
                 @click=${this.doExport}
               >Export ${this.selectedIds.size > 0 ? `(${this.selectedIds.size})` : ''}</button>

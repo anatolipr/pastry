@@ -124,6 +124,11 @@ export class PinnedItem extends LitElement {
       margin-left: 4px;
       cursor: default;
     }
+    .richtext-badge {
+      font-size: 11px;
+      margin-left: 4px;
+      cursor: default;
+    }
   `;
 
   private _handleCopy(): void {
@@ -174,6 +179,7 @@ export class PinnedItem extends LitElement {
           <div class="name">
             ${this.entry.name}
             ${hasReminder ? html`<span class="reminder-badge" title=${reminderTitle}>🔔</span>` : ''}
+            ${this.entry.htmlContent ? html`<span class="richtext-badge" title="Rich text / HTML">📝</span>` : ''}
           </div>
           ${preview}
           ${this.entry.tags && this.entry.tags.length > 0 ? html`

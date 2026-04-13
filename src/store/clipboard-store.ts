@@ -363,6 +363,40 @@ export async function exportSelectedPins(ids: string[]): Promise<boolean> {
   return window.pastryAPI.exportPins(payload);
 }
 
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+export function copySelectedPinsToClipboard(ids: string[]): void {
+  const visible = filteredPinned.get();
+  const selected = visible.filter((p) => ids.includes(p.id));
+  if (selected.length === 0) return;
+
+  const hasRich = selected.some((e) => e.htmlContent || e.imageDataUrl);
+
+  if (!hasRich) {
+    const text = selected.map((e) => e.text).join('\n');
+    window.pastryAPI.writeClipboard(text);
+  } else {
+    const htmlParts = selected.map((e) => {
+      if (e.imageDataUrl) {
+        return `<img src="${e.imageDataUrl}" alt="${escapeHtml(e.name || 'image')}" />`;
+      }
+      if (e.htmlContent) {
+        return e.htmlContent;
+      }
+      return `<p>${escapeHtml(e.text).replace(/\n/g, '<br>')}</p>`;
+    });
+    const htmlContent = htmlParts.join('\n');
+    const text = selected.map((e) => e.text || '[image]').join('\n');
+    window.pastryAPI.writeRichClipboard({ text, htmlContent });
+  }
+}
+
 export async function importPins(): Promise<void> {
   const raw = await window.pastryAPI.importPins();
   if (!raw || typeof raw !== 'object') return;
