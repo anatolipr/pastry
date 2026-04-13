@@ -215,6 +215,11 @@ export class PinnedList extends LitElement {
     }
   }
 
+  private exclusiveTagFilter(e: Event, tag: string) {
+    e.preventDefault();
+    setTagFilter([tag]);
+  }
+
   render() {
     const items = filteredPinned.get();
     const historyCount = filteredHistory.get().length;
@@ -256,6 +261,7 @@ export class PinnedList extends LitElement {
             <button
               class="tag-chip ${activeTags.includes(tag) ? 'active' : ''}"
               @click=${() => this.toggleTagFilter(tag)}
+              @contextmenu=${(e: Event) => this.exclusiveTagFilter(e, tag)}
             >${tag}</button>
           `)}
         </div>

@@ -15,4 +15,5 @@ export interface PinnedEntry {
   htmlContent?: string;
   tags?: string[];
   reminderAt?: number; // UTC ms timestamp for scheduled reminder
+  hidden?: boolean;    // when true, content is masked in the list view
 }

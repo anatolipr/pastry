@@ -79,6 +79,12 @@ const api: PastryAPI = {
     return () => ipcRenderer.removeListener('reminder:data', handler);
   },
 
+  onWindowShown(callback) {
+    const handler = () => callback();
+    ipcRenderer.on('window:shown', handler);
+    return () => ipcRenderer.removeListener('window:shown', handler);
+  },
+
   snoozeReminder(data: { pinId: string; label: string; snoozeMs: number }): void {
     ipcRenderer.send('reminder:snooze', data);
   },

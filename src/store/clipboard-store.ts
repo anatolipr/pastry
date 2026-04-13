@@ -201,7 +201,7 @@ export function unpinItem(id: string): void {
 /**
  * Update an existing pinned entry's name and/or text.
  */
-export function updatePinnedItem(id: string, name: string, text: string, tags?: string[], htmlContent?: string): void {
+export function updatePinnedItem(id: string, name: string, text: string, tags?: string[], htmlContent?: string, hidden?: boolean): void {
   pinnedItems.update((prev) =>
     prev.map((e) => (e.id === id ? {
       ...e,
@@ -209,6 +209,7 @@ export function updatePinnedItem(id: string, name: string, text: string, tags?: 
       text: text.trim() || e.text,
       htmlContent: htmlContent !== undefined ? htmlContent : e.htmlContent,
       tags: tags !== undefined ? (tags.length > 0 ? tags : undefined) : e.tags,
+      hidden: hidden !== undefined ? hidden : e.hidden,
     } : e)),
   );
   editTarget.set(null);
@@ -277,7 +278,7 @@ export function clearReminderOnPin(pinId: string): void {
 /**
  * Directly create a new pinned entry from scratch (not from clipboard history).
  */
-export function pinNewItem(text: string, name: string, tags: string[] = []): string {
+export function pinNewItem(text: string, name: string, tags: string[] = [], hidden = false): string {
   const trimmedText = text.trim();
   if (!trimmedText) return '';
   const trimmedName = name.trim() || trimmedText.slice(0, 30);
@@ -287,6 +288,7 @@ export function pinNewItem(text: string, name: string, tags: string[] = []): str
     name: trimmedName,
     pinnedAt: Date.now(),
     tags: tags.length > 0 ? tags : undefined,
+    hidden: hidden || undefined,
   };
   pinnedItems.update((prev) => [pinned, ...prev]);
   isNewPinOpen.set(false);

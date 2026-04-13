@@ -14,6 +14,7 @@ export class EditDialog extends LitElement {
   @state() private _tags: string[] = [];
   @state() private _tagInput = '';
   @state() private _tagSuggestions: string[] = [];
+  @state() private _hidden = false;
   @state() private _seeded = false;
   private _richEditorRef = createRef<HTMLDivElement>();
   private _pendingRichSeed = false;
@@ -57,6 +58,11 @@ export class EditDialog extends LitElement {
     }
     .image-preview img { max-height: 80px; max-width: 312px; object-fit: contain; display: block; }
     .actions { display: flex; justify-content: flex-end; gap: 8px; }
+    .hidden-row {
+      display: flex; align-items: center; justify-content: flex-start; gap: 8px; margin-bottom: 14px;
+    }
+    .hidden-row input[type=checkbox] { width: auto; padding: 0; margin: 0; cursor: pointer; accent-color: var(--accent-history); flex-shrink: 0; }
+    .hidden-row label { margin: 0; cursor: pointer; font-size: 12px; color: var(--text-secondary); }
     button {
       border-radius: 5px; cursor: pointer; font-size: 12px;
       padding: 6px 14px; border: 1px solid var(--border-input-strong); transition: background 0.1s;
@@ -109,6 +115,7 @@ export class EditDialog extends LitElement {
       this._text = entry.text;
       this._htmlContent = entry.htmlContent ?? '';
       this._tags = [...(entry.tags ?? [])];
+      this._hidden = entry.hidden ?? false;
       this._seeded = true;
       this._pendingRichSeed = Boolean(entry.htmlContent);
     }
@@ -169,7 +176,7 @@ export class EditDialog extends LitElement {
         htmlToSave = this._htmlContent;
       }
     }
-    updatePinnedItem(entry.id, this._name, textToSave, this._tags, htmlToSave);
+    updatePinnedItem(entry.id, this._name, textToSave, this._tags, htmlToSave, this._hidden);
     this._seeded = false;
   }
 
@@ -233,6 +240,11 @@ export class EditDialog extends LitElement {
                   placeholder="Clipboard value"
                   @keydown=${(e: KeyboardEvent) => { if (e.key === 'Escape') this._handleCancel(); }}
                 ></textarea>`}
+          <div class="hidden-row">
+            <input type="checkbox" id="edit-hidden" .checked=${this._hidden}
+              @change=${(e: Event) => { this._hidden = (e.target as HTMLInputElement).checked; }} />
+            <label for="edit-hidden">Hide content (show as [hidden] in list)</label>
+          </div>
           <div class="actions">
             <button class="remind" @click=${() => openReminderDialog(entry)}>🔔 Remind</button>
             <button class="cancel" @click=${this._handleCancel}>Cancel</button>

@@ -13,6 +13,7 @@ export class NewPinDialog extends LitElement {
   @state() private _tagInput = '';
   @state() private _tagSuggestions: string[] = [];
   @state() private _reminderAt: number | null = null;
+  @state() private _hidden = false;
   private _wasOpen = false;
 
   updated() {
@@ -63,6 +64,11 @@ export class NewPinDialog extends LitElement {
     .confirm { background: var(--accent-pinned); color: #1a1a1e; border-color: var(--accent-pinned); font-weight: 600; }
     .confirm:hover { opacity: 0.85; }
     .confirm:disabled { opacity: 0.4; cursor: default; }
+    .hidden-row {
+      display: flex; align-items: center; justify-content: flex-start; gap: 8px; margin-bottom: 16px;
+    }
+    .hidden-row input[type=checkbox] { width: auto; padding: 0; margin: 0; cursor: pointer; accent-color: var(--accent-pinned); flex-shrink: 0; }
+    .hidden-row label { margin: 0; cursor: pointer; font-size: 12px; color: var(--text-secondary); }
     .reminder-preview {
       font-size: 11px; color: var(--accent-pinned); margin-bottom: 14px;
       padding: 5px 8px; background: var(--bg-active-pinned);
@@ -137,7 +143,7 @@ export class NewPinDialog extends LitElement {
   private _handleConfirm(): void {
     if (!this._text.trim()) return;
     if (this._tagInput.trim()) this._addTag(this._tagInput);
-    const id = pinNewItem(this._text, this._name, this._tags);
+    const id = pinNewItem(this._text, this._name, this._tags, this._hidden);
     if (id && this._reminderAt) setReminderOnPin(id, this._reminderAt);
     this._reset();
   }
@@ -154,6 +160,7 @@ export class NewPinDialog extends LitElement {
     this._tagInput = '';
     this._tagSuggestions = [];
     this._reminderAt = null;
+    this._hidden = false;
   }
 
   render() {
@@ -207,6 +214,11 @@ export class NewPinDialog extends LitElement {
               <button @click=${() => { this._reminderAt = null; }}>✕</button>
             </div>
           ` : ''}
+          <div class="hidden-row">
+            <input type="checkbox" id="new-pin-hidden" .checked=${this._hidden}
+              @change=${(e: Event) => { this._hidden = (e.target as HTMLInputElement).checked; }} />
+            <label for="new-pin-hidden">Hide content (show as [hidden] in list)</label>
+          </div>
           <div class="actions">
             <button class="remind" @click=${() => openReminderDialogCallback(
               this._name.trim() || this._text.trim().slice(0, 30) || 'New pin',

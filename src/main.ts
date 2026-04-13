@@ -334,6 +334,7 @@ function toggleWindow(): void {
         }
         mainWindow?.show();
         mainWindow?.focus();
+        mainWindow?.webContents.send('window:shown');
         app.show();
       },
     );

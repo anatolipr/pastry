@@ -475,6 +475,14 @@ export class SettingsDialog extends LitElement {
     `;
   }
 
+  // ---------------------------------------------------------------------------
+  // HELP LAST UPDATED: commit 8401b0c (export history) — 2026-04-13
+  //
+  // To check for features added since: git log --oneline 8401b0c..HEAD
+  // Review each commit for user-facing changes, then update _renderHelp() below.
+  // After updating, replace the commit hash above with the current HEAD hash and
+  // update the date. See AGENTS.md for full instructions.
+  // ---------------------------------------------------------------------------
   private _renderHelp() {
     const globalShortcut = formatAccelerator(this._shortcut || shortcut.get());
     return html`
@@ -493,12 +501,15 @@ export class SettingsDialog extends LitElement {
         <div class="help-section">
           <div class="help-section-title">Features</div>
           <div class="feature-row"><span class="feature-name">History</span><span class="shortcut-desc">Automatically captures everything you copy, up to the configured limit</span></div>
-          <div class="feature-row"><span class="feature-name">Pins</span><span class="shortcut-desc">Save frequently used snippets, images, or rich text permanently</span></div>
+          <div class="feature-row"><span class="feature-name">Pins</span><span class="shortcut-desc">Save frequently used snippets, images, or rich text permanently; unpinning an item copies it to your clipboard</span></div>
           <div class="feature-row"><span class="feature-name">Search</span><span class="shortcut-desc">Type anything to instantly filter both history and pins</span></div>
           <div class="feature-row"><span class="feature-name">Tags</span><span class="shortcut-desc">Label pins with tags to organise and filter them</span></div>
           <div class="feature-row"><span class="feature-name">Reminders</span><span class="shortcut-desc">Set a time-based reminder on any pinned item</span></div>
-          <div class="feature-row"><span class="feature-name">Images</span><span class="shortcut-desc">History and pins support images, not just text</span></div>
+          <div class="feature-row"><span class="feature-name">Images</span><span class="shortcut-desc">History and pins support images; click a thumbnail to open a full-size preview</span></div>
           <div class="feature-row"><span class="feature-name">Rich text</span><span class="shortcut-desc">HTML/rich formatting is preserved when pasting</span></div>
+          <div class="feature-row"><span class="feature-name">Appearance</span><span class="shortcut-desc">Choose Dark, Light, or Auto (follows system) theme in Settings</span></div>
+          <div class="feature-row"><span class="feature-name">Export</span><span class="shortcut-desc">Click Export in the Pins panel to enter export mode; select any mix of pins and history items, then save to a JSON file or copy all to clipboard</span></div>
+          <div class="feature-row"><span class="feature-name">Import</span><span class="shortcut-desc">Click Import in the Pins panel to restore pins from a previously exported JSON file</span></div>
         </div>
       </div>
       <div class="help-actions">

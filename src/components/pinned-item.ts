@@ -129,6 +129,23 @@ export class PinnedItem extends LitElement {
       margin-left: 4px;
       cursor: default;
     }
+    .hidden-badge {
+      font-size: 10px;
+      font-weight: 600;
+      margin-left: 4px;
+      color: var(--text-muted);
+      background: var(--bg-hover);
+      border: 1px solid var(--border-soft);
+      border-radius: 4px;
+      padding: 1px 5px;
+      cursor: default;
+      letter-spacing: 0.02em;
+    }
+    .text-hidden {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-style: italic;
+    }
   `;
 
   private _handleCopy(): void {
@@ -166,9 +183,12 @@ export class PinnedItem extends LitElement {
 
   render() {
     const isImage = Boolean(this.entry.imageDataUrl);
+    const isHidden = Boolean(this.entry.hidden);
     const preview = isImage
       ? html`<div class="thumbnail"><img src=${this.entry.imageDataUrl!} @click=${this._handleImagePreview} /></div>`
-      : html`<div class="text" title=${this.entry.text}>${this.entry.text}</div>`;
+      : isHidden
+        ? html`<div class="text-hidden">[hidden]</div>`
+        : html`<div class="text" title=${this.entry.text}>${this.entry.text}</div>`;
     const hasReminder = Boolean(this.entry.reminderAt && this.entry.reminderAt > Date.now());
     const reminderTitle = hasReminder
       ? `Reminder: ${new Date(this.entry.reminderAt!).toLocaleString()}`
@@ -180,6 +200,7 @@ export class PinnedItem extends LitElement {
             ${this.entry.name}
             ${hasReminder ? html`<span class="reminder-badge" title=${reminderTitle}>🔔</span>` : ''}
             ${this.entry.htmlContent ? html`<span class="richtext-badge" title="Rich text / HTML">📝</span>` : ''}
+            ${isHidden ? html`<span class="hidden-badge" title="Content is hidden">hidden</span>` : ''}
           </div>
           ${preview}
           ${this.entry.tags && this.entry.tags.length > 0 ? html`

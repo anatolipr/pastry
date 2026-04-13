@@ -118,17 +118,27 @@ export class PastryApp extends LitElement {
     }
   `;
 
+  private _unsubWindowShown?: () => void;
+
   connectedCallback() {
     super.connectedCallback();
     document.addEventListener('keydown', this._onKeyDown);
     window.addEventListener('focus', this._onWindowFocus);
+    this._unsubWindowShown = window.pastryAPI.onWindowShown(this._onWindowShown);
   }
 
   disconnectedCallback() {
     super.disconnectedCallback();
     document.removeEventListener('keydown', this._onKeyDown);
     window.removeEventListener('focus', this._onWindowFocus);
+    this._unsubWindowShown?.();
   }
+
+  private _onWindowShown = (): void => {
+    setActiveIndex(-1);
+    // Double rAF ensures the window is painted and focusable before we call focus().
+    requestAnimationFrame(() => requestAnimationFrame(() => this._searchInput?.focus()));
+  };
 
   private _onWindowFocus = (): void => {
     // Reset selection and focus search every time the panel opens.
