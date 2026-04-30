@@ -2,7 +2,7 @@ import { LitElement, html, css } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { SignalWatcher } from 'avosignals';
 import type { ClipboardEntry } from '../shared-types';
-import { setPinTarget, setDeleteTarget, copyHistoryItemToTop } from '../store/clipboard-store';
+import { setPinTarget, setDeleteTarget, setHistoryEditTarget, copyHistoryItemToTop } from '../store/clipboard-store';
 
 @customElement('clipboard-item')
 export class ClipboardItem extends LitElement {
@@ -90,6 +90,13 @@ export class ClipboardItem extends LitElement {
     button.pin:hover {
       background: var(--bg-active-pinned);
     }
+    button.edit {
+      color: var(--accent-history);
+      border-color: var(--accent-history);
+    }
+    button.edit:hover {
+      background: var(--bg-active-history);
+    }
     button.delete {
       color: var(--accent-danger);
       border-color: var(--accent-danger);
@@ -129,6 +136,10 @@ export class ClipboardItem extends LitElement {
     setPinTarget(this.entry);
   }
 
+  private _handleEdit(): void {
+    setHistoryEditTarget(this.entry);
+  }
+
   private _handleDelete(): void {
     setDeleteTarget(this.entry);
   }
@@ -151,6 +162,7 @@ export class ClipboardItem extends LitElement {
         <div class="actions" @click=${(e: Event) => e.stopPropagation()}>
           <button @click=${this._handleCopy}>Copy</button>
           <button @click=${this._handlePaste}>Paste</button>
+          <button class="edit" @click=${this._handleEdit}>Edit</button>
           <button class="pin" @click=${this._handlePin}>Pin</button>
           <button class="delete" @click=${this._handleDelete}>Delete</button>
         </div>

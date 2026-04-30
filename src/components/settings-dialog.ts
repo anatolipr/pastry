@@ -511,6 +511,7 @@ export class SettingsDialog extends LitElement {
           <div class="feature-row"><span class="feature-name">Export</span><span class="shortcut-desc">Click Export in the Pins panel to enter export mode; select any mix of pins and history items, then save to a JSON file or copy all to clipboard</span></div>
           <div class="feature-row"><span class="feature-name">Import</span><span class="shortcut-desc">Click Import in the Pins panel to restore pins from a previously exported JSON file</span></div>
           <div class="feature-row"><span class="feature-name">Paste groups</span><span class="shortcut-desc">In a pin's content, use [TAB] or [ENTER] as separators to paste multiple fields in sequence — e.g. username[TAB]password pastes the username, presses Tab, then pastes the password</span></div>
+          <div class="feature-row"><span class="feature-name">Edit history</span><span class="shortcut-desc">Click Edit on any clipboard history item to modify its text before pasting or pinning</span></div>
           <div class="feature-row"><span class="feature-name">Pin Group</span><span class="shortcut-desc">In export mode, select items then click "Pin Group" to join them with a [TAB] or [ENTER] delimiter into a new paste-group pin; the result is also copied to your clipboard for immediate use</span></div>
         </div>
       </div>

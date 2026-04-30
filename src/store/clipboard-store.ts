@@ -31,6 +31,9 @@ export const unpinTarget = new Signal<PinnedEntry | null>(null, 'unpinTarget');
 /** The pinned entry currently being edited (drives edit-dialog). */
 export const editTarget = new Signal<PinnedEntry | null>(null, 'editTarget');
 
+/** The history entry currently being edited (drives history-edit-dialog). */
+export const historyEditTarget = new Signal<ClipboardEntry | null>(null, 'historyEditTarget');
+
 /** The history entry currently being considered for deletion (drives delete-dialog). */
 export const deleteTarget = new Signal<ClipboardEntry | null>(null, 'deleteTarget');
 
@@ -81,6 +84,11 @@ export const isEditDialogOpen = new Computed<boolean>(
 export const isDeleteDialogOpen = new Computed<boolean>(
   () => deleteTarget.get() !== null,
   'isDeleteDialogOpen',
+);
+
+export const isHistoryEditDialogOpen = new Computed<boolean>(
+  () => historyEditTarget.get() !== null,
+  'isHistoryEditDialogOpen',
 );
 
 export const isReminderDialogOpen = new Computed<boolean>(
@@ -246,6 +254,25 @@ export function setEditTarget(entry: PinnedEntry | null): void {
 
 export function setDeleteTarget(entry: ClipboardEntry | null): void {
   deleteTarget.set(entry);
+}
+
+export function setHistoryEditTarget(entry: ClipboardEntry | null): void {
+  historyEditTarget.set(entry);
+}
+
+/**
+ * Update a history entry's text (and optionally htmlContent).
+ */
+export function updateHistoryItem(id: string, text: string, htmlContent?: string): void {
+  clipboardHistory.update((prev) =>
+    prev.map((e) => (e.id === id ? {
+      ...e,
+      text: text || e.text,
+      htmlContent: htmlContent !== undefined ? htmlContent : e.htmlContent,
+    } : e)),
+  );
+  historyEditTarget.set(null);
+  persistStore();
 }
 
 export function setNewPinOpen(open: boolean): void {

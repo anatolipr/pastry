@@ -2,7 +2,7 @@ import { LitElement, html, css } from 'lit';
 import { customElement, query } from 'lit/decorators.js';
 import { SignalWatcher } from 'avosignals';
 import {
-  isPinDialogOpen, isUnpinDialogOpen, isEditDialogOpen, isDeleteDialogOpen, isSettingsOpen, isNewPinOpen, isReminderDialogOpen,
+  isPinDialogOpen, isUnpinDialogOpen, isEditDialogOpen, isDeleteDialogOpen, isHistoryEditDialogOpen, isSettingsOpen, isNewPinOpen, isReminderDialogOpen,
   isPasteGroupDialogOpen,
   searchQuery, activeItem, combinedItems, moveActiveIndexInPanel, moveActivePanel, setActiveIndex,
   setNewPinOpen, setEditTarget, pinnedItems,
@@ -18,6 +18,7 @@ import './settings-dialog';
 import './new-pin-dialog';
 import './reminder-dialog';
 import './paste-group-dialog';
+import './history-edit-dialog';
 
 @customElement('pastry-app')
 export class PastryApp extends LitElement {
@@ -194,7 +195,7 @@ export class PastryApp extends LitElement {
     }
 
     // Don't intercept when a dialog is open or user is editing pinned item text.
-    if (isPinDialogOpen.get() || isUnpinDialogOpen.get() || isEditDialogOpen.get() || isDeleteDialogOpen.get() || isSettingsOpen.get() || isNewPinOpen.get() || isReminderDialogOpen.get() || isPasteGroupDialogOpen.get()) return;
+    if (isPinDialogOpen.get() || isUnpinDialogOpen.get() || isEditDialogOpen.get() || isHistoryEditDialogOpen.get() || isDeleteDialogOpen.get() || isSettingsOpen.get() || isNewPinOpen.get() || isReminderDialogOpen.get() || isPasteGroupDialogOpen.get()) return;
 
     // If search is not focused and user types an alphanumeric character (no modifiers),
     // focus the search input and let the keystroke land in it naturally.
@@ -326,6 +327,7 @@ export class PastryApp extends LitElement {
       ${isPinDialogOpen.get() ? html`<pin-dialog></pin-dialog>` : ''}
       ${isUnpinDialogOpen.get() ? html`<unpin-dialog></unpin-dialog>` : ''}
       ${isEditDialogOpen.get() ? html`<edit-dialog></edit-dialog>` : ''}
+      ${isHistoryEditDialogOpen.get() ? html`<history-edit-dialog></history-edit-dialog>` : ''}
       ${isDeleteDialogOpen.get() ? html`<delete-dialog></delete-dialog>` : ''}
       ${isNewPinOpen.get() ? html`<new-pin-dialog></new-pin-dialog>` : ''}
       ${isReminderDialogOpen.get() ? html`<reminder-dialog></reminder-dialog>` : ''}
