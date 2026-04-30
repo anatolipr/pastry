@@ -62,6 +62,15 @@ export const selectedPinExportIds = new Signal<Set<string>>(new Set(), 'selected
 /** Whether the "Pin Paste Group" dialog is open. */
 export const isPasteGroupDialogOpen = new Signal<boolean>(false, 'isPasteGroupDialogOpen');
 
+export interface PlaceholderPastePayload {
+  text: string;
+  imageDataUrl?: string;
+  htmlContent?: string;
+}
+
+/** Set when a paste is initiated on text that contains ::placeholder:: tokens. */
+export const placeholderPasteTarget = new Signal<PlaceholderPastePayload | null>(null, 'placeholderPasteTarget');
+
 // ---------------------------------------------------------------------------
 // Derived / computed
 // ---------------------------------------------------------------------------
@@ -95,6 +104,36 @@ export const isReminderDialogOpen = new Computed<boolean>(
   () => reminderTarget.get() !== null || reminderCallbackTarget.get() !== null,
   'isReminderDialogOpen',
 );
+
+export const isPlaceholderDialogOpen = new Computed<boolean>(
+  () => placeholderPasteTarget.get() !== null,
+  'isPlaceholderDialogOpen',
+);
+
+// ---------------------------------------------------------------------------
+// Placeholder utilities
+// ---------------------------------------------------------------------------
+
+/** Returns the unique placeholder names found in `text` (::name:: syntax). */
+export function extractPlaceholders(text: string): string[] {
+  const names: string[] = [];
+  const seen = new Set<string>();
+  for (const m of text.matchAll(/::([^:]+)::/g)) {
+    const name = m[1];
+    if (!seen.has(name)) { seen.add(name); names.push(name); }
+  }
+  return names;
+}
+
+/** Returns true if `text` contains at least one ::placeholder:: token. */
+export function hasPlaceholders(text: string): boolean {
+  return /::([^:]+)::/.test(text);
+}
+
+/** Substitutes placeholder values into text and returns the result. */
+export function applyPlaceholders(text: string, values: Record<string, string>): string {
+  return text.replace(/::([^:]+)::/g, (_, name) => values[name] ?? `::${name}::`);
+}
 
 /** Returns true if every character of `query` appears in `text` in order. */
 function fuzzyMatch(text: string, query: string): boolean {
@@ -501,6 +540,14 @@ export function openPasteGroupDialog(): void {
 
 export function closePasteGroupDialog(): void {
   isPasteGroupDialogOpen.set(false);
+}
+
+export function openPlaceholderPaste(payload: PlaceholderPastePayload): void {
+  placeholderPasteTarget.set(payload);
+}
+
+export function closePlaceholderPaste(): void {
+  placeholderPasteTarget.set(null);
 }
 
 /** Builds the ordered item list for the paste-group dialog (chronological, oldest first). */

@@ -513,6 +513,7 @@ export class SettingsDialog extends LitElement {
           <div class="feature-row"><span class="feature-name">Paste groups</span><span class="shortcut-desc">In a pin's content, use [TAB] or [ENTER] as separators to paste multiple fields in sequence — e.g. username[TAB]password pastes the username, presses Tab, then pastes the password</span></div>
           <div class="feature-row"><span class="feature-name">Edit history</span><span class="shortcut-desc">Click Edit on any clipboard history item to modify its text before pasting or pinning</span></div>
           <div class="feature-row"><span class="feature-name">Pin Group</span><span class="shortcut-desc">In export mode, select items then click "Pin Group" to join them with a [TAB] or [ENTER] delimiter into a new paste-group pin; the result is also copied to your clipboard for immediate use</span></div>
+          <div class="feature-row"><span class="feature-name">Placeholders</span><span class="shortcut-desc">Add <code>::name::</code> tokens to any pin or history item; clicking Paste prompts you to fill in each value before pasting</span></div>
         </div>
       </div>
       <div class="help-actions">

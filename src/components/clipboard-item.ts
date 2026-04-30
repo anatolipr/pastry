@@ -2,7 +2,7 @@ import { LitElement, html, css } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { SignalWatcher } from 'avosignals';
 import type { ClipboardEntry } from '../shared-types';
-import { setPinTarget, setDeleteTarget, setHistoryEditTarget, copyHistoryItemToTop } from '../store/clipboard-store';
+import { setPinTarget, setDeleteTarget, setHistoryEditTarget, copyHistoryItemToTop, hasPlaceholders, openPlaceholderPaste } from '../store/clipboard-store';
 
 @customElement('clipboard-item')
 export class ClipboardItem extends LitElement {
@@ -129,7 +129,11 @@ export class ClipboardItem extends LitElement {
   }
 
   private _handlePaste(): void {
-    window.pastryAPI.pasteItem({ text: this.entry.text, imageDataUrl: this.entry.imageDataUrl, htmlContent: this.entry.htmlContent });
+    if (!this.entry.imageDataUrl && hasPlaceholders(this.entry.text)) {
+      openPlaceholderPaste({ text: this.entry.text, htmlContent: this.entry.htmlContent });
+    } else {
+      window.pastryAPI.pasteItem({ text: this.entry.text, imageDataUrl: this.entry.imageDataUrl, htmlContent: this.entry.htmlContent });
+    }
   }
 
   private _handlePin(): void {

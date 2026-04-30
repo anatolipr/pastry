@@ -3,9 +3,10 @@ import { customElement, query } from 'lit/decorators.js';
 import { SignalWatcher } from 'avosignals';
 import {
   isPinDialogOpen, isUnpinDialogOpen, isEditDialogOpen, isDeleteDialogOpen, isHistoryEditDialogOpen, isSettingsOpen, isNewPinOpen, isReminderDialogOpen,
-  isPasteGroupDialogOpen,
+  isPasteGroupDialogOpen, isPlaceholderDialogOpen,
   searchQuery, activeItem, combinedItems, moveActiveIndexInPanel, moveActivePanel, setActiveIndex,
   setNewPinOpen, setEditTarget, pinnedItems,
+  hasPlaceholders, openPlaceholderPaste,
 } from '../store/clipboard-store';
 import './history-list';
 import './pinned-list';
@@ -19,6 +20,7 @@ import './new-pin-dialog';
 import './reminder-dialog';
 import './paste-group-dialog';
 import './history-edit-dialog';
+import './placeholder-dialog';
 
 @customElement('pastry-app')
 export class PastryApp extends LitElement {
@@ -195,7 +197,7 @@ export class PastryApp extends LitElement {
     }
 
     // Don't intercept when a dialog is open or user is editing pinned item text.
-    if (isPinDialogOpen.get() || isUnpinDialogOpen.get() || isEditDialogOpen.get() || isHistoryEditDialogOpen.get() || isDeleteDialogOpen.get() || isSettingsOpen.get() || isNewPinOpen.get() || isReminderDialogOpen.get() || isPasteGroupDialogOpen.get()) return;
+    if (isPinDialogOpen.get() || isUnpinDialogOpen.get() || isEditDialogOpen.get() || isHistoryEditDialogOpen.get() || isDeleteDialogOpen.get() || isSettingsOpen.get() || isNewPinOpen.get() || isReminderDialogOpen.get() || isPasteGroupDialogOpen.get() || isPlaceholderDialogOpen.get()) return;
 
     // If search is not focused and user types an alphanumeric character (no modifiers),
     // focus the search input and let the keystroke land in it naturally.
@@ -233,7 +235,11 @@ export class PastryApp extends LitElement {
       const item = activeItem.get();
       if (item) {
         e.preventDefault();
-        window.pastryAPI.pasteItem({ text: item.entry.text, imageDataUrl: item.entry.imageDataUrl, htmlContent: item.entry.htmlContent });
+        if (!item.entry.imageDataUrl && hasPlaceholders(item.entry.text)) {
+          openPlaceholderPaste({ text: item.entry.text, htmlContent: item.entry.htmlContent });
+        } else {
+          window.pastryAPI.pasteItem({ text: item.entry.text, imageDataUrl: item.entry.imageDataUrl, htmlContent: item.entry.htmlContent });
+        }
       }
     } else if ((e.metaKey || e.ctrlKey) && e.key === 'c') {
       const item = activeItem.get();
@@ -332,6 +338,7 @@ export class PastryApp extends LitElement {
       ${isNewPinOpen.get() ? html`<new-pin-dialog></new-pin-dialog>` : ''}
       ${isReminderDialogOpen.get() ? html`<reminder-dialog></reminder-dialog>` : ''}
       ${isPasteGroupDialogOpen.get() ? html`<paste-group-dialog></paste-group-dialog>` : ''}
+      ${isPlaceholderDialogOpen.get() ? html`<placeholder-dialog></placeholder-dialog>` : ''}
       ${isSettingsOpen.get() ? html`<settings-dialog></settings-dialog>` : ''}
     `;
   }
