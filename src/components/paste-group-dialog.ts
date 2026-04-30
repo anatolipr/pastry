@@ -96,10 +96,11 @@ export class PasteGroupDialog extends LitElement {
   updated() {
     const isOpen = isPasteGroupDialogOpen.get();
     if (isOpen && !this._wasOpen) {
+      // Transitioning closed → open: initialise items
       this._items = buildPasteGroupItems();
       this.shadowRoot?.querySelector<HTMLInputElement>('input')?.focus();
-    }
-    if (!isOpen) {
+    } else if (!isOpen && this._wasOpen) {
+      // Transitioning open → closed: reset (only once)
       this._name = '';
       this._delimiter = '[TAB]';
       this._items = [];
