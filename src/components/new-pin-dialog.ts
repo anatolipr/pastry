@@ -41,10 +41,16 @@ export class NewPinDialog extends LitElement {
       width: 100%; box-sizing: border-box;
       background: var(--bg-input); border: 1px solid var(--border-input-strong);
       border-radius: 5px; color: var(--text-primary); font-size: 13px;
-      padding: 7px 10px; outline: none; margin-bottom: 16px;
+      padding: 7px 10px; outline: none; margin-bottom: 6px;
       font-family: inherit; resize: vertical; min-height: 72px;
     }
     textarea:focus { border-color: var(--accent-pinned); }
+    .paste-hint {
+      font-size: 11px; color: var(--text-muted); margin-bottom: 12px; line-height: 1.4;
+    }
+    .paste-hint code {
+      background: var(--bg-hover); border-radius: 3px; padding: 0 3px; font-size: 10px;
+    }
     input {
       width: 100%; box-sizing: border-box;
       background: var(--bg-input); border: 1px solid var(--border-input-strong);
@@ -181,6 +187,7 @@ export class NewPinDialog extends LitElement {
             @keydown=${(e: KeyboardEvent) => { if (e.key === 'Escape') this._handleCancel(); }}
             autofocus
           ></textarea>
+          <p class="paste-hint">Tip: use <code>[TAB]</code> or <code>[ENTER]</code> to press a key between pastes — e.g. <code>username[TAB]password</code></p>
           <label for="new-pin-name">Label (optional)</label>
           <input
             id="new-pin-name"
