@@ -184,3 +184,4 @@ graph TD
     ACT -- "saveStore" --> JSON
     JSON -- "loadStore on startup" --> SIG
 ```
+<img width="1369" height="759" alt="image" src="https://github.com/user-attachments/assets/62d10e32-25d1-4367-908c-cbf447551059" />

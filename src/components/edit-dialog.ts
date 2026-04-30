@@ -106,6 +106,12 @@ export class EditDialog extends LitElement {
       padding: 6px 12px; font-size: 12px; color: var(--text-secondary); cursor: pointer;
     }
     .suggestion:hover { background: var(--bg-active-history); color: var(--text-primary); }
+    .paste-hint {
+      font-size: 11px; color: var(--text-muted); margin: -8px 0 12px; line-height: 1.4;
+    }
+    .paste-hint code {
+      background: var(--bg-hover); border-radius: 3px; padding: 0 3px; font-size: 10px;
+    }
   `;
 
   private _seed(): void {
@@ -239,7 +245,8 @@ export class EditDialog extends LitElement {
                   @input=${(e: Event) => { this._text = (e.target as HTMLTextAreaElement).value; }}
                   placeholder="Clipboard value"
                   @keydown=${(e: KeyboardEvent) => { if (e.key === 'Escape') this._handleCancel(); }}
-                ></textarea>`}
+                ></textarea>
+                <p class="paste-hint">Tip: use <code>[TAB]</code> or <code>[ENTER]</code> to press a key between pastes — e.g. <code>username[TAB]password</code></p>`}
           <div class="hidden-row">
             <input type="checkbox" id="edit-hidden" .checked=${this._hidden}
               @change=${(e: Event) => { this._hidden = (e.target as HTMLInputElement).checked; }} />

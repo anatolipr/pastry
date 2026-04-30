@@ -245,6 +245,62 @@ ipcMain.handle('pins:import', async () => {
 });
 
 ipcMain.on('clipboard:paste', (_event, payload: { text?: string; imageDataUrl?: string; htmlContent?: string }) => {
+  mainWindow?.hide();
+  const target = previousApp;
+
+  // Paste group token pattern — [TAB] or [ENTER], case-insensitive
+  const GROUP_TOKEN = /(\[TAB\]|\[ENTER\])/i;
+
+  const isGroupPaste = !payload.imageDataUrl && !payload.htmlContent && GROUP_TOKEN.test(payload.text ?? '');
+
+  if (isGroupPaste) {
+    // Split into alternating [text, separator, text, separator, …] parts
+    const rawParts = (payload.text ?? '').split(GROUP_TOKEN);
+    // rawParts: ['seg0', '[TAB]', 'seg1', '[ENTER]', 'seg2', …]
+    const segments: string[] = [];
+    const separators: string[] = []; // one fewer than segments
+    for (let i = 0; i < rawParts.length; i++) {
+      if (i % 2 === 0) {
+        segments.push(rawParts[i]);
+      } else {
+        separators.push(rawParts[i].toUpperCase());
+      }
+    }
+
+    // Build AppleScript lines
+    const lines: string[] = [];
+    if (target) {
+      lines.push(`set frontmost of (first application process whose name is "${target}") to true`);
+    }
+    for (let i = 0; i < segments.length; i++) {
+      // Escape backslashes then double-quotes for AppleScript string literals
+      const escaped = segments[i].replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+      lines.push(`set the clipboard to "${escaped}"`);
+      lines.push(`keystroke "v" using command down`);
+      if (i < separators.length) {
+        lines.push(`delay 0.08`);
+        const sep = separators[i];
+        if (sep === '[ENTER]') {
+          lines.push(`key code 36`); // Return key
+        } else {
+          lines.push(`key code 48`); // Tab key
+        }
+        lines.push(`delay 0.08`);
+      }
+    }
+
+    const osaLines = lines.map((l) => `-e 'tell application "System Events" to ${l}'`).join(' ');
+    const script = `osascript ${osaLines}`;
+    log(`paste-groups triggered (${segments.length} segments), previousApp=${JSON.stringify(target)}`);
+    log(`running script: ${script}`);
+    exec(script, (err, stdout, stderr) => {
+      if (err) log(`paste-groups failed: ${err.message} | stderr: ${stderr}`);
+      else log(`paste-groups succeeded stdout=${stdout.trim()}`);
+    });
+    return;
+  }
+
+  // Standard single-paste path
   if (payload.imageDataUrl) {
     clipboard.writeImage(nativeImage.createFromDataURL(payload.imageDataUrl));
   } else if (payload.htmlContent) {
@@ -252,8 +308,6 @@ ipcMain.on('clipboard:paste', (_event, payload: { text?: string; imageDataUrl?: 
   } else {
     clipboard.writeText(payload.text ?? '');
   }
-  mainWindow?.hide();
-  const target = previousApp;
   // osascript runs as a child of Electron, which has Accessibility — so keying
   // is allowed without any extra osascript entry in System Preferences.
   const script = target
