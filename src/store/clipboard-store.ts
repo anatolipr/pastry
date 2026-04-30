@@ -476,18 +476,32 @@ export function closePasteGroupDialog(): void {
   isPasteGroupDialogOpen.set(false);
 }
 
-export function pinPasteGroup(delimiter: PasteGroupDelimiter, name: string): void {
+/** Builds the ordered item list for the paste-group dialog (chronological, oldest first). */
+export function buildPasteGroupItems(): Array<{ id: string; label: string; text: string }> {
   const histIds = selectedHistoryExportIds.get();
   const pinIds = selectedPinExportIds.get();
-  const histItems = filteredHistory.get().filter((e) => histIds.has(e.id));
-  const pinItems = filteredPinned.get().filter((p) => pinIds.has(p.id));
-  const allTexts = [...histItems, ...pinItems].map((e) => e.text).filter(Boolean);
-  if (allTexts.length === 0) return;
-  const groupText = allTexts.join(delimiter);
+
+  const histItems = filteredHistory.get()
+    .filter((e) => histIds.has(e.id))
+    .map((e) => ({ id: e.id, label: e.text.slice(0, 40), text: e.text, ts: e.timestamp }));
+
+  const pinItems = filteredPinned.get()
+    .filter((p) => pinIds.has(p.id))
+    .map((p) => ({ id: p.id, label: p.name || p.text.slice(0, 40), text: p.text, ts: p.pinnedAt }));
+
+  return [...histItems, ...pinItems]
+    .sort((a, b) => a.ts - b.ts)
+    .map(({ id, label, text }) => ({ id, label, text }));
+}
+
+export function pinPasteGroup(delimiter: PasteGroupDelimiter, name: string, items: Array<{ text: string }>): void {
+  const texts = items.map((i) => i.text).filter(Boolean);
+  if (texts.length === 0) return;
+  const groupText = texts.join(delimiter);
   const pinned: PinnedEntry = {
     id: crypto.randomUUID(),
     text: groupText,
-    name: name.trim() || allTexts.map((t) => t.slice(0, 15)).join('+'),
+    name: name.trim() || texts.map((t) => t.slice(0, 15)).join('+'),
     pinnedAt: Date.now(),
   };
   pinnedItems.update((prev) => [pinned, ...prev]);

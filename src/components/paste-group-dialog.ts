@@ -2,11 +2,11 @@ import { LitElement, html, css } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { SignalWatcher } from 'avosignals';
 import {
-  isPasteGroupDialogOpen, closePasteGroupDialog, pinPasteGroup,
-  selectedHistoryExportIds, selectedPinExportIds,
-  filteredHistory, filteredPinned,
+  isPasteGroupDialogOpen, closePasteGroupDialog, pinPasteGroup, buildPasteGroupItems,
   type PasteGroupDelimiter,
 } from '../store/clipboard-store';
+
+interface GroupItem { id: string; label: string; text: string; }
 
 @customElement('paste-group-dialog')
 export class PasteGroupDialog extends LitElement {
@@ -14,6 +14,11 @@ export class PasteGroupDialog extends LitElement {
 
   @state() private _name = '';
   @state() private _delimiter: PasteGroupDelimiter = '[TAB]';
+  @state() private _items: GroupItem[] = [];
+  @state() private _dragIndex: number | null = null;
+  @state() private _dropIndex: number | null = null;
+
+  private _wasOpen = false;
 
   static styles = css`
     :host { display: contents; }
@@ -23,16 +28,12 @@ export class PasteGroupDialog extends LitElement {
     }
     .dialog {
       background: var(--bg-dialog); border: 1px solid var(--border-dialog);
-      border-radius: 10px; padding: 20px 24px; width: 300px;
+      border-radius: 10px; padding: 20px 24px; width: 310px;
       box-shadow: 0 8px 32px rgba(0,0,0,0.5);
     }
     h3 { margin: 0 0 4px; font-size: 14px; color: var(--accent-pinned); }
-    .subtitle {
-      font-size: 11px; color: var(--text-muted); margin: 0 0 16px;
-    }
-    label {
-      display: block; font-size: 12px; color: var(--text-secondary); margin-bottom: 6px;
-    }
+    .subtitle { font-size: 11px; color: var(--text-muted); margin: 0 0 14px; }
+    label { display: block; font-size: 12px; color: var(--text-secondary); margin-bottom: 6px; }
     input {
       width: 100%; box-sizing: border-box;
       background: var(--bg-input); border: 1px solid var(--border-input-strong);
@@ -40,12 +41,8 @@ export class PasteGroupDialog extends LitElement {
       padding: 7px 10px; outline: none; margin-bottom: 16px; font-family: inherit;
     }
     input:focus { border-color: var(--accent-pinned); }
-    .delimiter-label {
-      display: block; font-size: 12px; color: var(--text-secondary); margin-bottom: 8px;
-    }
-    .delimiter-row {
-      display: flex; gap: 8px; margin-bottom: 20px;
-    }
+    .delimiter-label { display: block; font-size: 12px; color: var(--text-secondary); margin-bottom: 8px; }
+    .delimiter-row { display: flex; gap: 8px; margin-bottom: 14px; }
     .delim-btn {
       flex: 1; padding: 7px 10px; border-radius: 6px; font-size: 12px; font-weight: 600;
       cursor: pointer; border: 1px solid var(--border-input-strong);
@@ -54,14 +51,32 @@ export class PasteGroupDialog extends LitElement {
     }
     .delim-btn:hover { color: var(--text-primary); }
     .delim-btn.active {
-      background: var(--bg-active-pinned); border-color: var(--accent-pinned);
-      color: var(--accent-pinned);
+      background: var(--bg-active-pinned); border-color: var(--accent-pinned); color: var(--accent-pinned);
     }
+    .order-label { font-size: 12px; color: var(--text-secondary); margin-bottom: 6px; display: block; }
+    .order-list {
+      list-style: none; margin: 0 0 14px; padding: 0;
+      border: 1px solid var(--border-input-strong); border-radius: 6px; overflow: hidden;
+    }
+    .order-item {
+      display: flex; align-items: center; gap: 8px;
+      padding: 6px 8px; font-size: 12px; color: var(--text-secondary);
+      background: var(--bg-input); cursor: grab;
+      border-bottom: 1px solid var(--border-subtle);
+      transition: background 0.1s;
+      user-select: none;
+    }
+    .order-item:last-child { border-bottom: none; }
+    .order-item.dragging { opacity: 0.4; }
+    .order-item.drop-target { background: var(--bg-active-pinned); color: var(--accent-pinned); }
+    .drag-handle { font-size: 13px; color: var(--text-hint); flex-shrink: 0; line-height: 1; }
+    .item-num { font-size: 10px; color: var(--text-hint); flex-shrink: 0; width: 14px; text-align: right; }
+    .item-label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .preview {
       font-size: 11px; color: var(--text-muted); background: var(--bg-input);
       border-radius: 5px; padding: 7px 10px; margin-bottom: 16px;
       font-family: monospace; white-space: pre-wrap; word-break: break-all;
-      max-height: 60px; overflow: hidden; text-overflow: ellipsis;
+      max-height: 52px; overflow: hidden;
     }
     .actions { display: flex; justify-content: flex-end; gap: 8px; }
     button.cancel {
@@ -80,42 +95,70 @@ export class PasteGroupDialog extends LitElement {
 
   updated() {
     const isOpen = isPasteGroupDialogOpen.get();
-    if (isOpen) {
+    if (isOpen && !this._wasOpen) {
+      this._items = buildPasteGroupItems();
       this.shadowRoot?.querySelector<HTMLInputElement>('input')?.focus();
-    } else {
+    }
+    if (!isOpen) {
       this._name = '';
       this._delimiter = '[TAB]';
+      this._items = [];
+      this._dragIndex = null;
+      this._dropIndex = null;
     }
+    this._wasOpen = isOpen;
   }
 
-  private _buildPreview(): string {
-    const histIds = selectedHistoryExportIds.get();
-    const pinIds = selectedPinExportIds.get();
-    const histItems = filteredHistory.get().filter((e) => histIds.has(e.id));
-    const pinItems = filteredPinned.get().filter((p) => pinIds.has(p.id));
-    const texts = [...histItems, ...pinItems].map((e) => e.text.slice(0, 20)).filter(Boolean);
-    return texts.join(this._delimiter);
+  private _preview(): string {
+    return this._items.map((i) => i.text.slice(0, 20)).join(this._delimiter);
+  }
+
+  private _onDragStart(index: number) {
+    this._dragIndex = index;
+  }
+
+  private _onDragOver(e: DragEvent, index: number) {
+    e.preventDefault();
+    if (this._dropIndex !== index) this._dropIndex = index;
+  }
+
+  private _onDrop(index: number) {
+    if (this._dragIndex === null || this._dragIndex === index) {
+      this._dragIndex = null;
+      this._dropIndex = null;
+      return;
+    }
+    const next = [...this._items];
+    const [moved] = next.splice(this._dragIndex, 1);
+    next.splice(index, 0, moved);
+    this._items = next;
+    this._dragIndex = null;
+    this._dropIndex = null;
+  }
+
+  private _onDragEnd() {
+    this._dragIndex = null;
+    this._dropIndex = null;
   }
 
   private _handleConfirm(): void {
-    pinPasteGroup(this._delimiter, this._name);
+    pinPasteGroup(this._delimiter, this._name, this._items);
     this._name = '';
     this._delimiter = '[TAB]';
+    this._items = [];
   }
 
   private _handleCancel(): void {
     closePasteGroupDialog();
     this._name = '';
     this._delimiter = '[TAB]';
+    this._items = [];
   }
 
   render() {
     if (!isPasteGroupDialogOpen.get()) return html``;
 
-    const histCount = selectedHistoryExportIds.get().size;
-    const pinCount = selectedPinExportIds.get().size;
-    const total = histCount + pinCount;
-    const preview = this._buildPreview();
+    const total = this._items.length;
 
     return html`
       <div class="overlay"
@@ -127,17 +170,31 @@ export class PasteGroupDialog extends LitElement {
 
           <span class="delimiter-label">Join items with</span>
           <div class="delimiter-row">
-            <button
-              class="delim-btn ${this._delimiter === '[TAB]' ? 'active' : ''}"
-              @click=${() => { this._delimiter = '[TAB]'; }}
-            >[TAB]</button>
-            <button
-              class="delim-btn ${this._delimiter === '[ENTER]' ? 'active' : ''}"
-              @click=${() => { this._delimiter = '[ENTER]'; }}
-            >[ENTER]</button>
+            <button class="delim-btn ${this._delimiter === '[TAB]' ? 'active' : ''}"
+              @click=${() => { this._delimiter = '[TAB]'; }}>[TAB]</button>
+            <button class="delim-btn ${this._delimiter === '[ENTER]' ? 'active' : ''}"
+              @click=${() => { this._delimiter = '[ENTER]'; }}>[ENTER]</button>
           </div>
 
-          <div class="preview">${preview}</div>
+          <span class="order-label">Order (drag to rearrange)</span>
+          <ol class="order-list">
+            ${this._items.map((item, i) => html`
+              <li
+                class="order-item ${this._dragIndex === i ? 'dragging' : ''} ${this._dropIndex === i && this._dragIndex !== i ? 'drop-target' : ''}"
+                draggable="true"
+                @dragstart=${() => this._onDragStart(i)}
+                @dragover=${(e: DragEvent) => this._onDragOver(e, i)}
+                @drop=${() => this._onDrop(i)}
+                @dragend=${() => this._onDragEnd()}
+              >
+                <span class="drag-handle">⠿</span>
+                <span class="item-num">${i + 1}.</span>
+                <span class="item-label" title=${item.text}>${item.label}</span>
+              </li>
+            `)}
+          </ol>
+
+          <div class="preview">${this._preview()}</div>
 
           <label for="paste-group-name">Label (optional)</label>
           <input
