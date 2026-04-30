@@ -476,9 +476,9 @@ export class SettingsDialog extends LitElement {
   }
 
   // ---------------------------------------------------------------------------
-  // HELP LAST UPDATED: commit 0aa09d4 (pin paste group feature) — 2026-04-30
+  // HELP LAST UPDATED: commit def0796 (add Edit button to clipboard history items) — 2026-04-30
   //
-  // To check for features added since: git log --oneline 0aa09d4..HEAD
+  // To check for features added since: git log --oneline def0796..HEAD
   // Review each commit for user-facing changes, then update _renderHelp() below.
   // After updating, replace the commit hash above with the current HEAD hash and
   // update the date. See AGENTS.md for full instructions.
