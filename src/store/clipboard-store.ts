@@ -56,6 +56,9 @@ export const selectedHistoryExportIds = new Signal<Set<string>>(new Set(), 'sele
 /** IDs of pinned entries selected for combined export/copy. */
 export const selectedPinExportIds = new Signal<Set<string>>(new Set(), 'selectedPinExportIds');
 
+/** Whether the "Pin Paste Group" dialog is open. */
+export const isPasteGroupDialogOpen = new Signal<boolean>(false, 'isPasteGroupDialogOpen');
+
 // ---------------------------------------------------------------------------
 // Derived / computed
 // ---------------------------------------------------------------------------
@@ -85,11 +88,20 @@ export const isReminderDialogOpen = new Computed<boolean>(
   'isReminderDialogOpen',
 );
 
+/** Returns true if every character of `query` appears in `text` in order. */
+function fuzzyMatch(text: string, query: string): boolean {
+  let qi = 0;
+  for (let i = 0; i < text.length && qi < query.length; i++) {
+    if (text[i] === query[qi]) qi++;
+  }
+  return qi === query.length;
+}
+
 export const filteredHistory = new Computed<ClipboardEntry[]>(() => {
   const q = searchQuery.get().toLowerCase().trim();
   if (!q) return clipboardHistory.get();
   return clipboardHistory.get().filter((e) =>
-    e.imageDataUrl ? false : e.text.toLowerCase().includes(q),
+    e.imageDataUrl ? false : fuzzyMatch(e.text.toLowerCase(), q),
   );
 }, 'filteredHistory');
 
@@ -107,7 +119,7 @@ export const filteredPinned = new Computed<PinnedEntry[]>(() => {
   let items = pinnedItems.get();
   if (q) {
     items = items.filter(
-      (e) => e.text.toLowerCase().includes(q) || e.name.toLowerCase().includes(q),
+      (e) => fuzzyMatch(e.text.toLowerCase(), q) || fuzzyMatch(e.name.toLowerCase(), q),
     );
   }
   if (tf.length > 0) {
@@ -452,6 +464,37 @@ export function copySelectedCombined(): void {
     const text = allItems.map((e) => e.text || '[image]').join('\n');
     window.pastryAPI.writeRichClipboard({ text, htmlContent: htmlParts.join('\n') });
   }
+}
+
+export type PasteGroupDelimiter = '[TAB]' | '[ENTER]';
+
+export function openPasteGroupDialog(): void {
+  isPasteGroupDialogOpen.set(true);
+}
+
+export function closePasteGroupDialog(): void {
+  isPasteGroupDialogOpen.set(false);
+}
+
+export function pinPasteGroup(delimiter: PasteGroupDelimiter, name: string): void {
+  const histIds = selectedHistoryExportIds.get();
+  const pinIds = selectedPinExportIds.get();
+  const histItems = filteredHistory.get().filter((e) => histIds.has(e.id));
+  const pinItems = filteredPinned.get().filter((p) => pinIds.has(p.id));
+  const allTexts = [...histItems, ...pinItems].map((e) => e.text).filter(Boolean);
+  if (allTexts.length === 0) return;
+  const groupText = allTexts.join(delimiter);
+  const pinned: PinnedEntry = {
+    id: crypto.randomUUID(),
+    text: groupText,
+    name: name.trim() || allTexts.map((t) => t.slice(0, 15)).join('+'),
+    pinnedAt: Date.now(),
+  };
+  pinnedItems.update((prev) => [pinned, ...prev]);
+  persistStore();
+  window.pastryAPI.writeClipboard(groupText);
+  isPasteGroupDialogOpen.set(false);
+  cancelExportMode();
 }
 
 export async function importPins(): Promise<void> {

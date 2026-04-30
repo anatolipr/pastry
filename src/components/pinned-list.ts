@@ -8,6 +8,7 @@ import {
   togglePinExportItem, togglePinExportAll,
   exportCombined, copySelectedCombined,
   importPins, allTags, tagFilter, setTagFilter, setNewPinOpen,
+  openPasteGroupDialog,
 } from '../store/clipboard-store';
 import './pinned-item';
 
@@ -65,6 +66,14 @@ export class PinnedList extends LitElement {
       color: var(--accent-pinned);
     }
     .btn-copy:disabled {
+      opacity: 0.4;
+      cursor: default;
+    }
+    .btn-group {
+      background: var(--accent-pinned-bg, rgba(139,92,246,0.15));
+      color: var(--accent-pinned);
+    }
+    .btn-group:disabled {
       opacity: 0.4;
       cursor: default;
     }
@@ -238,6 +247,11 @@ export class PinnedList extends LitElement {
         ${exportMode
           ? html`
               <button class="btn btn-ghost" @click=${() => cancelExportMode()}>Cancel</button>
+              <button class="btn btn-group"
+                ?disabled=${totalSelected === 0}
+                @click=${() => openPasteGroupDialog()}
+                title="Join selected items into a paste group and pin it"
+              >Pin Group</button>
               <button class="btn btn-copy"
                 ?disabled=${totalSelected === 0}
                 @click=${this._doCopy}

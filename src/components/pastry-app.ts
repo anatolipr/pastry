@@ -3,6 +3,7 @@ import { customElement, query } from 'lit/decorators.js';
 import { SignalWatcher } from 'avosignals';
 import {
   isPinDialogOpen, isUnpinDialogOpen, isEditDialogOpen, isDeleteDialogOpen, isSettingsOpen, isNewPinOpen, isReminderDialogOpen,
+  isPasteGroupDialogOpen,
   searchQuery, activeItem, combinedItems, moveActiveIndexInPanel, moveActivePanel, setActiveIndex,
   setNewPinOpen, setEditTarget, pinnedItems,
 } from '../store/clipboard-store';
@@ -16,6 +17,7 @@ import './delete-dialog';
 import './settings-dialog';
 import './new-pin-dialog';
 import './reminder-dialog';
+import './paste-group-dialog';
 
 @customElement('pastry-app')
 export class PastryApp extends LitElement {
@@ -72,6 +74,11 @@ export class PastryApp extends LitElement {
       background: var(--bg-main);
       border-bottom: 1px solid var(--border-subtle);
     }
+    .search-input-wrap {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
     .search-bar input {
       width: 100%;
       box-sizing: border-box;
@@ -86,6 +93,28 @@ export class PastryApp extends LitElement {
     .search-bar input:focus {
       border-color: var(--border-focus);
       background: var(--bg-input-focus);
+    }
+    .search-bar input.has-value {
+      padding-right: 28px;
+    }
+    .clear-btn {
+      position: absolute;
+      right: 6px;
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--text-muted);
+      font-size: 13px;
+      line-height: 1;
+      padding: 2px 4px;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .clear-btn:hover {
+      color: var(--text-primary);
+      background: var(--bg-hover);
     }
     .panels {
       display: flex;
@@ -165,7 +194,7 @@ export class PastryApp extends LitElement {
     }
 
     // Don't intercept when a dialog is open or user is editing pinned item text.
-    if (isPinDialogOpen.get() || isUnpinDialogOpen.get() || isEditDialogOpen.get() || isDeleteDialogOpen.get() || isSettingsOpen.get() || isNewPinOpen.get() || isReminderDialogOpen.get()) return;
+    if (isPinDialogOpen.get() || isUnpinDialogOpen.get() || isEditDialogOpen.get() || isDeleteDialogOpen.get() || isSettingsOpen.get() || isNewPinOpen.get() || isReminderDialogOpen.get() || isPasteGroupDialogOpen.get()) return;
 
     // If search is not focused and user types an alphanumeric character (no modifiers),
     // focus the search input and let the keystroke land in it naturally.
@@ -248,6 +277,12 @@ export class PastryApp extends LitElement {
     setActiveIndex(combinedItems.get().length > 0 ? 0 : -1);
   }
 
+  private _clearSearch(): void {
+    searchQuery.set('');
+    setActiveIndex(-1);
+    this._searchInput?.focus();
+  }
+
   render() {
     return html`
       <div class="titlebar">
@@ -255,15 +290,19 @@ export class PastryApp extends LitElement {
         <button class="settings-btn" title="Settings" @click=${() => isSettingsOpen.set(true)}>⚙</button>
       </div>
       <div class="search-bar">
-        <input
-          id="search-input"
-          type="text"
-          placeholder="Search history and pins…"
-          autocomplete="off"
-          spellcheck="false"
-          .value=${searchQuery.get()}
-          @input=${this._onSearch}
-        />
+        <div class="search-input-wrap">
+          <input
+            id="search-input"
+            type="text"
+            placeholder="Search history and pins…"
+            autocomplete="off"
+            spellcheck="false"
+            class=${searchQuery.get() ? 'has-value' : ''}
+            .value=${searchQuery.get()}
+            @input=${this._onSearch}
+          />
+          ${searchQuery.get() ? html`<button class="clear-btn" title="Clear search" @click=${this._clearSearch}>✕</button>` : ''}
+        </div>
       </div>
       <div class="hint">↑↓ navigate · Enter paste · ⌘C copy · Esc close</div>
       ${searchQuery.get()
@@ -290,6 +329,7 @@ export class PastryApp extends LitElement {
       ${isDeleteDialogOpen.get() ? html`<delete-dialog></delete-dialog>` : ''}
       ${isNewPinOpen.get() ? html`<new-pin-dialog></new-pin-dialog>` : ''}
       ${isReminderDialogOpen.get() ? html`<reminder-dialog></reminder-dialog>` : ''}
+      ${isPasteGroupDialogOpen.get() ? html`<paste-group-dialog></paste-group-dialog>` : ''}
       ${isSettingsOpen.get() ? html`<settings-dialog></settings-dialog>` : ''}
     `;
   }

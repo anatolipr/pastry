@@ -476,9 +476,9 @@ export class SettingsDialog extends LitElement {
   }
 
   // ---------------------------------------------------------------------------
-  // HELP LAST UPDATED: commit 95b8f68 (paste groups via [TAB]/[ENTER] tokens) — 2026-04-30
+  // HELP LAST UPDATED: commit 0aa09d4 (pin paste group feature) — 2026-04-30
   //
-  // To check for features added since: git log --oneline 95b8f68..HEAD
+  // To check for features added since: git log --oneline 0aa09d4..HEAD
   // Review each commit for user-facing changes, then update _renderHelp() below.
   // After updating, replace the commit hash above with the current HEAD hash and
   // update the date. See AGENTS.md for full instructions.
@@ -511,6 +511,7 @@ export class SettingsDialog extends LitElement {
           <div class="feature-row"><span class="feature-name">Export</span><span class="shortcut-desc">Click Export in the Pins panel to enter export mode; select any mix of pins and history items, then save to a JSON file or copy all to clipboard</span></div>
           <div class="feature-row"><span class="feature-name">Import</span><span class="shortcut-desc">Click Import in the Pins panel to restore pins from a previously exported JSON file</span></div>
           <div class="feature-row"><span class="feature-name">Paste groups</span><span class="shortcut-desc">In a pin's content, use [TAB] or [ENTER] as separators to paste multiple fields in sequence — e.g. username[TAB]password pastes the username, presses Tab, then pastes the password</span></div>
+          <div class="feature-row"><span class="feature-name">Pin Group</span><span class="shortcut-desc">In export mode, select items then click "Pin Group" to join them with a [TAB] or [ENTER] delimiter into a new paste-group pin; the result is also copied to your clipboard for immediate use</span></div>
         </div>
       </div>
       <div class="help-actions">
