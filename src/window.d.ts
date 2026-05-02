@@ -5,6 +5,7 @@ export interface ClipboardPayload {
 }
 
 export interface PastryAPI {
+  setMaxImageSizeMb: (mb: number) => void;
   writeClipboard: (text: string) => void;
   writeRichClipboard: (payload: { text: string; htmlContent: string }) => void;
   writeImageClipboard: (dataUrl: string) => void;
@@ -32,6 +33,7 @@ export interface PastryStore {
   history: import('./shared-types').ClipboardEntry[];
   pinned: import('./shared-types').PinnedEntry[];
   historySize: number;
+  maxImageSizeMb?: number;
   shortcut?: string;
   sequentialPasteShortcut?: string;
   themeMode?: string;

@@ -188,8 +188,6 @@ ipcMain.on('clipboard:write-image', (_event, dataUrl: string) => {
   lastImageSignature = sig;
   lastClipboardText = '';
   const native = nativeImage.createFromDataURL(dataUrl);
-  const { width, height } = native.getSize();
-  lastImageQuickSig = `${width}x${height}`;
   clipboard.writeImage(native);
 });
 
@@ -204,7 +202,11 @@ function getStorePath(): string {
 ipcMain.handle('store:load', () => {
   try {
     const raw = fs.readFileSync(getStorePath(), 'utf-8');
-    return JSON.parse(raw);
+    const data = JSON.parse(raw);
+    if (typeof data?.maxImageSizeMb === 'number' && data.maxImageSizeMb > 0) {
+      imageSizeLimitBytes = data.maxImageSizeMb * 1024 * 1024;
+    }
+    return data;
   } catch {
     return null;
   }
@@ -215,6 +217,12 @@ ipcMain.on('store:save', (_event, data: unknown) => {
     fs.writeFileSync(getStorePath(), JSON.stringify(data), 'utf-8');
   } catch (err) {
     console.error('[pastry] store:save failed:', err);
+  }
+});
+
+ipcMain.on('settings:max-image-size-mb', (_event, mb: number) => {
+  if (typeof mb === 'number' && mb > 0) {
+    imageSizeLimitBytes = mb * 1024 * 1024;
   }
 });
 
@@ -359,31 +367,30 @@ ipcMain.on('clipboard:paste-keep-open', (_event, payload: { text?: string; image
 // Clipboard watcher
 // ---------------------------------------------------------------------------
 
-const IMAGE_SIZE_LIMIT = 5 * 1024 * 1024; // 5 MB data-URL cap
+const DEFAULT_MAX_IMAGE_SIZE_MB = 5;
+let imageSizeLimitBytes = DEFAULT_MAX_IMAGE_SIZE_MB * 1024 * 1024;
 
 function startClipboardWatcher(): void {
   setInterval(() => {
     const img = clipboard.readImage();
     if (!img.isEmpty()) {
-      // Fast path: compare dimensions only (no PNG encoding) to skip unchanged images.
       const { width, height } = img.getSize();
       const quickSig = `${width}x${height}`;
       if (quickSig === lastImageQuickSig) return;
-
-      // Dimensions changed — compute full signature and notify if new.
       lastImageQuickSig = quickSig;
-      const dataUrl = img.toDataURL();
-      const sig = `${dataUrl.length}:${dataUrl.slice(0, 40)}`;
-      if (sig !== lastImageSignature) {
-        lastImageSignature = sig;
-        lastClipboardText = '';
-        if (dataUrl.length <= IMAGE_SIZE_LIMIT) {
-          mainWindow?.webContents.send('clipboard:change', { imageDataUrl: dataUrl, text: '' });
-        }
+
+      let dataUrl = img.toDataURL();
+      if (dataUrl.length > imageSizeLimitBytes) {
+        dataUrl = img.toJPEG(85).toString('base64');
+        dataUrl = `data:image/jpeg;base64,${dataUrl}`;
+      }
+      lastImageSignature = '';
+      lastClipboardText = '';
+      if (dataUrl.length <= imageSizeLimitBytes) {
+        mainWindow?.webContents.send('clipboard:change', { imageDataUrl: dataUrl, text: '' });
       }
       return;
     }
-    // No image — reset quick sig and check text.
     lastImageQuickSig = '';
     const current = clipboard.readText();
     if (current !== lastClipboardText) {

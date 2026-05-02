@@ -2,6 +2,10 @@ import { contextBridge, ipcRenderer } from 'electron';
 import type { PastryAPI } from './window';
 
 const api: PastryAPI = {
+  setMaxImageSizeMb(mb: number): void {
+    ipcRenderer.send('settings:max-image-size-mb', mb);
+  },
+
   writeClipboard(text: string): void {
     ipcRenderer.send('clipboard:write', text);
   },

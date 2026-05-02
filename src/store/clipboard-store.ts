@@ -13,6 +13,7 @@ export type ActiveItem =
 export const clipboardHistory = new Signal<ClipboardEntry[]>([], 'clipboardHistory');
 export const pinnedItems = new Signal<PinnedEntry[]>([], 'pinnedItems');
 export const historySize = new Signal<number>(DEFAULT_HISTORY_SIZE, 'historySize');
+export const maxImageSizeMb = new Signal<number>(5, 'maxImageSizeMb');
 export const shortcut = new Signal<string>(GLOBAL_SHORTCUT, 'shortcut');
 export const sequentialPasteShortcut = new Signal<string>('', 'sequentialPasteShortcut');
 export const searchQuery = new Signal<string>('', 'searchQuery');
@@ -418,6 +419,12 @@ export function copyHistoryItemToTop(id: string): void {
   persistStore();
 }
 
+export function setMaxImageSizeMb(mb: number): void {
+  maxImageSizeMb.set(mb);
+  window.pastryAPI.setMaxImageSizeMb(mb);
+  persistStore();
+}
+
 export function setThemeMode(mode: ThemeMode): void {
   themeMode.set(mode);
   persistStore();
@@ -776,6 +783,7 @@ export function persistStore(): void {
       history: clipboardHistory.get(),
       pinned: pinnedItems.get(),
       historySize: historySize.get(),
+      maxImageSizeMb: maxImageSizeMb.get(),
       shortcut: shortcut.get(),
       sequentialPasteShortcut: sequentialPasteShortcut.get(),
       themeMode: themeMode.get(),
@@ -790,6 +798,7 @@ export async function loadPersistedStore(): Promise<void> {
   if (Array.isArray(data.history)) clipboardHistory.set(data.history);
   if (Array.isArray(data.pinned)) pinnedItems.set(data.pinned);
   if (typeof data.historySize === 'number') historySize.set(data.historySize);
+  if (typeof data.maxImageSizeMb === 'number' && data.maxImageSizeMb > 0) maxImageSizeMb.set(data.maxImageSizeMb);
   if (typeof data.shortcut === 'string' && data.shortcut) shortcut.set(data.shortcut);
   if (typeof data.sequentialPasteShortcut === 'string') sequentialPasteShortcut.set(data.sequentialPasteShortcut);
   if (data.themeMode === 'dark' || data.themeMode === 'light' || data.themeMode === 'auto') themeMode.set(data.themeMode);

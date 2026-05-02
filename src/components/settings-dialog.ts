@@ -3,10 +3,12 @@ import { customElement, state } from 'lit/decorators.js';
 import { SignalWatcher } from 'avosignals';
 import {
   historySize,
+  maxImageSizeMb,
   shortcut,
   sequentialPasteShortcut,
   themeMode,
   setHistorySize,
+  setMaxImageSizeMb,
   setShortcut,
   setSequentialPasteShortcut,
   setThemeMode,
@@ -70,6 +72,7 @@ export class SettingsDialog extends LitElement {
   private watcher = new SignalWatcher(this);
 
   @state() private _historySize = 50;
+  @state() private _maxImageSizeMb = 5;
   @state() private _shortcut = '';
   @state() private _shortcutDisplay = '';
   @state() private _capturing = false;
@@ -386,6 +389,7 @@ export class SettingsDialog extends LitElement {
   connectedCallback(): void {
     super.connectedCallback();
     this._historySize = historySize.get();
+    this._maxImageSizeMb = maxImageSizeMb.get();
     this._shortcut = shortcut.get();
     this._shortcutDisplay = formatAccelerator(shortcut.get());
     this._seqShortcut = sequentialPasteShortcut.get();
@@ -477,6 +481,7 @@ export class SettingsDialog extends LitElement {
     }
 
     setHistorySize(this._historySize);
+    setMaxImageSizeMb(this._maxImageSizeMb);
     setThemeMode(this._theme);
     isSettingsOpen.set(false);
   }
@@ -583,6 +588,20 @@ export class SettingsDialog extends LitElement {
               @change=${(e: Event) => {
                 const v = parseInt((e.target as HTMLInputElement).value, 10);
                 if (!isNaN(v)) this._historySize = Math.max(1, Math.min(200, v));
+              }}
+            />
+          </div>
+
+          <div class="field">
+            <label>Max image size (MB)</label>
+            <input
+              type="number"
+              min="1"
+              max="50"
+              .value=${String(this._maxImageSizeMb)}
+              @change=${(e: Event) => {
+                const v = parseInt((e.target as HTMLInputElement).value, 10);
+                if (!isNaN(v)) this._maxImageSizeMb = Math.max(1, Math.min(50, v));
               }}
             />
           </div>
