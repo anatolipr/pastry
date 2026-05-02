@@ -215,8 +215,12 @@ export function addToHistory(payload: { text: string; imageDataUrl?: string; htm
     imageDataUrl,
     htmlContent,
   };
-  const next = [entry, ...filtered].slice(0, historySize.get());
+  const limit = historySize.get();
+  const next = [entry, ...filtered].slice(0, limit);
   clipboardHistory.set(next);
+  if (filtered.length >= limit) {
+    window.pastryAPI.notifyHistoryFull(limit);
+  }
   persistStore();
 }
 

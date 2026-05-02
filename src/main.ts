@@ -155,7 +155,6 @@ ipcMain.on('window:hide', () => {
 // Track what Pastry itself writes so the watcher doesn't re-add it to history.
 let lastClipboardText = '';
 let lastImageSignature = ''; // length+prefix to detect changes without full compare
-let lastImageQuickSig = ''; // "WxH" cheap pre-check to avoid toDataURL() on every poll
 let openPreviewCount = 0;
 
 ipcMain.on('clipboard:write', (_event, text: string) => {
@@ -374,24 +373,20 @@ function startClipboardWatcher(): void {
   setInterval(() => {
     const img = clipboard.readImage();
     if (!img.isEmpty()) {
-      const { width, height } = img.getSize();
-      const quickSig = `${width}x${height}`;
-      if (quickSig === lastImageQuickSig) return;
-      lastImageQuickSig = quickSig;
-
       let dataUrl = img.toDataURL();
       if (dataUrl.length > imageSizeLimitBytes) {
         dataUrl = img.toJPEG(85).toString('base64');
         dataUrl = `data:image/jpeg;base64,${dataUrl}`;
       }
-      lastImageSignature = '';
+      const sig = dataUrl.slice(0, 64) + dataUrl.length;
+      if (sig === lastImageSignature) return;
+      lastImageSignature = sig;
       lastClipboardText = '';
       if (dataUrl.length <= imageSizeLimitBytes) {
         mainWindow?.webContents.send('clipboard:change', { imageDataUrl: dataUrl, text: '' });
       }
       return;
     }
-    lastImageQuickSig = '';
     const current = clipboard.readText();
     if (current !== lastClipboardText) {
       lastClipboardText = current;
@@ -634,6 +629,87 @@ ipcMain.on('image-preview:open', (_event, payload: { dataUrl: string; title: str
   win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(IMAGE_PREVIEW_HTML)}`);
   win.webContents.once('did-finish-load', () => {
     win.webContents.send('image-preview:data', payload);
+    win.show();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// History-full warning window
+// ---------------------------------------------------------------------------
+
+const HISTORY_FULL_HTML = `<!DOCTYPE html>
+<html><head>
+<meta charset="utf-8">
+<style>
+  html, body {
+    margin: 0; padding: 0; width: 100%; height: 100vh;
+    background: #1e1e1e; display: flex; flex-direction: column;
+    overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+  #titlebar {
+    -webkit-app-region: drag;
+    height: 28px; background: #2a2a2a; display: flex; align-items: center;
+    padding: 0 14px; flex-shrink: 0; font-size: 12px; font-weight: 600;
+    color: #aaa; border-bottom: 1px solid #3a3a3a; box-sizing: border-box; gap: 6px;
+  }
+  #body {
+    flex: 1; display: flex; flex-direction: column; align-items: center;
+    justify-content: center; padding: 20px 24px; gap: 14px; text-align: center;
+  }
+  #message {
+    font-size: 14px; color: #e8e8e8; line-height: 1.5; max-width: 300px;
+  }
+  #sub {
+    font-size: 12px; color: #888; max-width: 300px; line-height: 1.4;
+  }
+  #dismiss {
+    -webkit-app-region: no-drag;
+    background: #4c8ef7; border: none; border-radius: 6px; color: #fff;
+    cursor: pointer; font-size: 13px; font-weight: 600; padding: 7px 22px;
+    transition: background 0.1s; margin-top: 4px;
+  }
+  #dismiss:hover { background: #6aa0ff; }
+</style>
+</head><body>
+<div id="titlebar"><span>⚠️</span><span>History Full</span></div>
+<div id="body">
+  <div id="message">Your clipboard history is full.</div>
+  <div id="sub">The oldest item will be removed each time a new one is added. Increase the history size in Settings to keep more items.</div>
+  <button id="dismiss" onclick="window.close()">Got it</button>
+</div>
+<script>
+  if (window.pastryAPI && window.pastryAPI.onHistoryFullData) {
+    window.pastryAPI.onHistoryFullData(function(data) {
+      document.getElementById('message').textContent =
+        'Your clipboard history is full (' + data.historySize + ' items).';
+    });
+  }
+</script>
+</body></html>`;
+
+let historyFullWindowOpen = false;
+
+ipcMain.on('history:full', (_event, historySize: number) => {
+  if (historyFullWindowOpen) return;
+  historyFullWindowOpen = true;
+  const win = new BrowserWindow({
+    width: 380,
+    height: 230,
+    resizable: false,
+    title: 'History Full',
+    show: false,
+    alwaysOnTop: true,
+    frame: false,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  });
+  win.on('closed', () => { historyFullWindowOpen = false; });
+  win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(HISTORY_FULL_HTML)}`);
+  win.webContents.once('did-finish-load', () => {
+    win.webContents.send('history-full:data', { historySize });
     win.show();
   });
 });

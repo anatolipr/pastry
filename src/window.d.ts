@@ -27,6 +27,8 @@ export interface PastryAPI {
   snoozeReminder: (data: { pinId: string; label: string; snoozeMs: number }) => void;
   onReminderSnoozed: (callback: (payload: { pinId: string; reminderAt: number }) => void) => () => void;
   onWindowShown: (callback: () => void) => () => void;
+  notifyHistoryFull: (historySize: number) => void;
+  onHistoryFullData: (callback: (payload: { historySize: number }) => void) => () => void;
 }
 
 export interface PastryStore {

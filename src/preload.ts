@@ -97,6 +97,17 @@ const api: PastryAPI = {
     ipcRenderer.send('reminder:snooze', data);
   },
 
+  notifyHistoryFull(historySize: number): void {
+    ipcRenderer.send('history:full', historySize);
+  },
+
+  onHistoryFullData(callback) {
+    const handler = (_event: Electron.IpcRendererEvent, payload: { historySize: number }) =>
+      callback(payload);
+    ipcRenderer.once('history-full:data', handler);
+    return () => ipcRenderer.removeListener('history-full:data', handler);
+  },
+
   onReminderSnoozed(callback) {
     const handler = (_event: Electron.IpcRendererEvent, payload: { pinId: string; reminderAt: number }) =>
       callback(payload);
