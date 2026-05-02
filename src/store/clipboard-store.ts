@@ -204,9 +204,9 @@ export function addToHistory(payload: { text: string; imageDataUrl?: string; htm
   const { text, imageDataUrl, htmlContent } = payload;
   if (!imageDataUrl && !text.trim()) return;
   const current = clipboardHistory.get();
-  // Dedup on text (for text entries) or imageDataUrl signature (for images)
+  // Dedup on text for text entries; images always allowed to appear multiple times
   const filtered = imageDataUrl
-    ? current.filter((e) => e.imageDataUrl !== imageDataUrl)
+    ? current
     : current.filter((e) => e.text !== text);
   const entry: ClipboardEntry = {
     id: crypto.randomUUID(),
