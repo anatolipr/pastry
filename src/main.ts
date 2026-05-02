@@ -378,7 +378,7 @@ function startClipboardWatcher(): void {
         dataUrl = img.toJPEG(85).toString('base64');
         dataUrl = `data:image/jpeg;base64,${dataUrl}`;
       }
-      const sig = dataUrl.slice(0, 64) + dataUrl.length;
+      const sig = `${dataUrl.length}:${dataUrl.slice(0, 40)}`;
       if (sig === lastImageSignature) return;
       lastImageSignature = sig;
       lastClipboardText = '';
