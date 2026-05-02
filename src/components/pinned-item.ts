@@ -2,7 +2,7 @@ import { LitElement, html, css } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { SignalWatcher } from 'avosignals';
 import type { PinnedEntry } from '../shared-types';
-import { setUnpinTarget, setEditTarget, addToHistory, openReminderDialog, hasPlaceholders, openPlaceholderPaste } from '../store/clipboard-store';
+import { setUnpinTarget, setEditTarget, addToHistory, openReminderDialog, hasPlaceholders, openPlaceholderPaste, recordPastedAt } from '../store/clipboard-store';
 
 @customElement('pinned-item')
 export class PinnedItem extends LitElement {
@@ -80,10 +80,16 @@ export class PinnedItem extends LitElement {
       padding: 1px 6px;
       white-space: nowrap;
     }
+    .right {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 3px;
+      flex-shrink: 0;
+    }
     .actions {
       display: flex;
       gap: 4px;
-      flex-shrink: 0;
     }
     button {
       background: var(--bg-input);
@@ -146,7 +152,20 @@ export class PinnedItem extends LitElement {
       color: var(--text-muted);
       font-style: italic;
     }
+    .pasted-time {
+      font-size: 10px;
+      color: var(--accent-history);
+      opacity: 0.8;
+    }
   `;
+
+  private _formatPastedTime(ts: number): string {
+    const d = new Date(ts);
+    const now = new Date();
+    const sameDay = d.toDateString() === now.toDateString();
+    if (sameDay) return `pasted ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+    return `pasted ${d.toLocaleDateString([], { month: 'short', day: 'numeric' })} ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+  }
 
   private _handleCopy(): void {
     if (this.entry.imageDataUrl) {
@@ -164,6 +183,7 @@ export class PinnedItem extends LitElement {
     if (!this.entry.imageDataUrl && hasPlaceholders(this.entry.text)) {
       openPlaceholderPaste({ text: this.entry.text, htmlContent: this.entry.htmlContent });
     } else {
+      recordPastedAt(this.entry.id, 'pinned');
       window.pastryAPI.pasteItem({ text: this.entry.text, imageDataUrl: this.entry.imageDataUrl, htmlContent: this.entry.htmlContent });
     }
   }
@@ -211,12 +231,15 @@ export class PinnedItem extends LitElement {
             <div class="tags">${this.entry.tags.map((t) => html`<span class="tag">${t}</span>`)}</div>
           ` : ''}
         </div>
-        <div class="actions" @click=${(e: Event) => e.stopPropagation()}>
-          <button @click=${this._handleCopy}>Copy</button>
-          <button @click=${this._handlePaste}>Paste</button>
-          <button class="edit" @click=${this._handleEdit}>Edit</button>
-          <button class="remind" @click=${this._handleReminder}>Remind</button>
-          <button class="unpin" @click=${this._handleUnpin}>Unpin</button>
+        <div class="right">
+          <div class="actions" @click=${(e: Event) => e.stopPropagation()}>
+            <button @click=${this._handleCopy}>Copy</button>
+            <button @click=${this._handlePaste}>Paste</button>
+            <button class="edit" @click=${this._handleEdit}>Edit</button>
+            <button class="remind" @click=${this._handleReminder}>Remind</button>
+            <button class="unpin" @click=${this._handleUnpin}>Unpin</button>
+          </div>
+          ${this.entry.pastedAt ? html`<div class="pasted-time" title="Last pasted">${this._formatPastedTime(this.entry.pastedAt)}</div>` : ''}
         </div>
       </div>
     `;

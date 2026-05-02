@@ -300,12 +300,19 @@ ipcMain.on('clipboard:paste', (_event, payload: { text?: string; imageDataUrl?: 
     return;
   }
 
-  // Standard single-paste path
+  // Standard single-paste path — track what we write so the watcher doesn't re-add it.
   if (payload.imageDataUrl) {
+    const sig = `${payload.imageDataUrl.length}:${payload.imageDataUrl.slice(0, 40)}`;
+    lastImageSignature = sig;
+    lastClipboardText = '';
     clipboard.writeImage(nativeImage.createFromDataURL(payload.imageDataUrl));
   } else if (payload.htmlContent) {
+    lastClipboardText = payload.text ?? '';
+    lastImageSignature = '';
     clipboard.write({ text: payload.text ?? '', html: payload.htmlContent });
   } else {
+    lastClipboardText = payload.text ?? '';
+    lastImageSignature = '';
     clipboard.writeText(payload.text ?? '');
   }
   // osascript runs as a child of Electron, which has Accessibility — so keying
@@ -318,6 +325,33 @@ ipcMain.on('clipboard:paste', (_event, payload: { text?: string; imageDataUrl?: 
   exec(script, (err, stdout, stderr) => {
     if (err) log(`paste failed: ${err.message} | stderr: ${stderr}`);
     else log(`paste succeeded stdout=${stdout.trim()}`);
+  });
+});
+
+// Paste without hiding the window — used by sequential paste so the user can
+// keep pressing the shortcut/button without reopening Pastry each time.
+ipcMain.on('clipboard:paste-keep-open', (_event, payload: { text?: string; imageDataUrl?: string; htmlContent?: string }) => {
+  // Track what we're writing so the watcher doesn't re-add it as a new history entry.
+  if (payload.imageDataUrl) {
+    const sig = `${payload.imageDataUrl.length}:${payload.imageDataUrl.slice(0, 40)}`;
+    lastImageSignature = sig;
+    lastClipboardText = '';
+    clipboard.writeImage(nativeImage.createFromDataURL(payload.imageDataUrl));
+  } else if (payload.htmlContent) {
+    lastClipboardText = payload.text ?? '';
+    lastImageSignature = '';
+    clipboard.write({ text: payload.text ?? '', html: payload.htmlContent });
+  } else {
+    lastClipboardText = payload.text ?? '';
+    lastImageSignature = '';
+    clipboard.writeText(payload.text ?? '');
+  }
+  const target = previousApp;
+  const script = target
+    ? `osascript -e 'tell application "System Events" to set frontmost of (first application process whose name is "${target}") to true' -e 'tell application "System Events" to keystroke "v" using command down'`
+    : `osascript -e 'tell application "System Events" to keystroke "v" using command down'`;
+  exec(script, (err, _stdout, stderr) => {
+    if (err) log(`paste-keep-open failed: ${err.message} | stderr: ${stderr}`);
   });
 });
 

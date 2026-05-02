@@ -14,6 +14,7 @@ export const clipboardHistory = new Signal<ClipboardEntry[]>([], 'clipboardHisto
 export const pinnedItems = new Signal<PinnedEntry[]>([], 'pinnedItems');
 export const historySize = new Signal<number>(DEFAULT_HISTORY_SIZE, 'historySize');
 export const shortcut = new Signal<string>(GLOBAL_SHORTCUT, 'shortcut');
+export const sequentialPasteShortcut = new Signal<string>('', 'sequentialPasteShortcut');
 export const searchQuery = new Signal<string>('', 'searchQuery');
 export const tagFilter = new Signal<string[]>([], 'tagFilter');
 export const activeIndex = new Signal<number>(-1, 'activeIndex');
@@ -427,6 +428,56 @@ export function setShortcut(s: string): void {
   persistStore();
 }
 
+export function setSequentialPasteShortcut(s: string): void {
+  sequentialPasteShortcut.set(s);
+  persistStore();
+}
+
+/** Mark an item as pasted right now. */
+export function recordPastedAt(id: string, kind: 'history' | 'pinned'): void {
+  const ts = Date.now();
+  if (kind === 'history') {
+    clipboardHistory.update((prev) => prev.map((e) => e.id === id ? { ...e, pastedAt: ts } : e));
+  } else {
+    pinnedItems.update((prev) => prev.map((p) => p.id === id ? { ...p, pastedAt: ts } : p));
+  }
+  persistStore();
+}
+
+/**
+ * Paste-and-deselect: picks the first selected item (history before pins),
+ * pastes it, removes it from the selection, and records its pastedAt time.
+ * Returns false when no items are selected (caller should show a notification).
+ */
+export function pasteNextSelected(): boolean {
+  const histIds = selectedHistoryExportIds.get();
+  const pinIds = selectedPinExportIds.get();
+
+  // Determine the first selected history item (preserve filteredHistory order)
+  const firstHist = filteredHistory.get().find((e) => histIds.has(e.id));
+  if (firstHist) {
+    const nextHistIds = new Set(histIds);
+    nextHistIds.delete(firstHist.id);
+    selectedHistoryExportIds.set(nextHistIds);
+    recordPastedAt(firstHist.id, 'history');
+    window.pastryAPI.pasteItemKeepOpen({ text: firstHist.text, imageDataUrl: firstHist.imageDataUrl, htmlContent: firstHist.htmlContent });
+    return true;
+  }
+
+  // Fall back to first selected pinned item
+  const firstPin = filteredPinned.get().find((p) => pinIds.has(p.id));
+  if (firstPin) {
+    const nextPinIds = new Set(pinIds);
+    nextPinIds.delete(firstPin.id);
+    selectedPinExportIds.set(nextPinIds);
+    recordPastedAt(firstPin.id, 'pinned');
+    window.pastryAPI.pasteItemKeepOpen({ text: firstPin.text, imageDataUrl: firstPin.imageDataUrl, htmlContent: firstPin.htmlContent });
+    return true;
+  }
+
+  return false;
+}
+
 export function setHistorySize(size: number): void {
   const clamped = Math.max(1, Math.min(200, size));
   historySize.set(clamped);
@@ -726,6 +777,7 @@ export function persistStore(): void {
       pinned: pinnedItems.get(),
       historySize: historySize.get(),
       shortcut: shortcut.get(),
+      sequentialPasteShortcut: sequentialPasteShortcut.get(),
       themeMode: themeMode.get(),
     });
   }, 400);
@@ -739,6 +791,7 @@ export async function loadPersistedStore(): Promise<void> {
   if (Array.isArray(data.pinned)) pinnedItems.set(data.pinned);
   if (typeof data.historySize === 'number') historySize.set(data.historySize);
   if (typeof data.shortcut === 'string' && data.shortcut) shortcut.set(data.shortcut);
+  if (typeof data.sequentialPasteShortcut === 'string') sequentialPasteShortcut.set(data.sequentialPasteShortcut);
   if (data.themeMode === 'dark' || data.themeMode === 'light' || data.themeMode === 'auto') themeMode.set(data.themeMode);
   // Re-register any future reminders so timers fire even after a restart.
   const now = Date.now();

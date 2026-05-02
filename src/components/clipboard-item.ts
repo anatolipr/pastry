@@ -2,7 +2,7 @@ import { LitElement, html, css } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { SignalWatcher } from 'avosignals';
 import type { ClipboardEntry } from '../shared-types';
-import { setPinTarget, setDeleteTarget, setHistoryEditTarget, copyHistoryItemToTop, hasPlaceholders, openPlaceholderPaste } from '../store/clipboard-store';
+import { setPinTarget, setDeleteTarget, setHistoryEditTarget, copyHistoryItemToTop, hasPlaceholders, openPlaceholderPaste, recordPastedAt } from '../store/clipboard-store';
 
 @customElement('clipboard-item')
 export class ClipboardItem extends LitElement {
@@ -60,15 +60,30 @@ export class ClipboardItem extends LitElement {
       margin-left: 6px;
       white-space: nowrap;
     }
+    .right {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 3px;
+      flex-shrink: 0;
+    }
+    .meta {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
     .time {
       font-size: 10px;
       color: var(--text-muted);
-      flex-shrink: 0;
+    }
+    .pasted-time {
+      font-size: 10px;
+      color: var(--accent-history);
+      opacity: 0.8;
     }
     .actions {
       display: flex;
       gap: 4px;
-      flex-shrink: 0;
     }
     button {
       background: var(--bg-input);
@@ -116,6 +131,14 @@ export class ClipboardItem extends LitElement {
     return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   }
 
+  private _formatPastedTime(ts: number): string {
+    const d = new Date(ts);
+    const now = new Date();
+    const sameDay = d.toDateString() === now.toDateString();
+    if (sameDay) return `pasted ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+    return `pasted ${d.toLocaleDateString([], { month: 'short', day: 'numeric' })} ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+  }
+
   private _handleCopy(): void {
     if (this.entry.imageDataUrl) {
       window.pastryAPI.writeImageClipboard(this.entry.imageDataUrl);
@@ -132,6 +155,7 @@ export class ClipboardItem extends LitElement {
     if (!this.entry.imageDataUrl && hasPlaceholders(this.entry.text)) {
       openPlaceholderPaste({ text: this.entry.text, htmlContent: this.entry.htmlContent });
     } else {
+      recordPastedAt(this.entry.id, 'history');
       window.pastryAPI.pasteItem({ text: this.entry.text, imageDataUrl: this.entry.imageDataUrl, htmlContent: this.entry.htmlContent });
     }
   }
@@ -162,13 +186,18 @@ export class ClipboardItem extends LitElement {
       <div class="row ${this.active ? 'active' : ''}" @click=${this._handlePaste}>
         ${content}
         ${this.entry.htmlContent ? html`<span class="richtext-badge" title="Rich text / HTML">📝</span>` : ''}
-        <span class="time">${this._formatTime(this.entry.timestamp)}</span>
-        <div class="actions" @click=${(e: Event) => e.stopPropagation()}>
-          <button @click=${this._handleCopy}>Copy</button>
-          <button @click=${this._handlePaste}>Paste</button>
-          <button class="edit" @click=${this._handleEdit}>Edit</button>
-          <button class="pin" @click=${this._handlePin}>Pin</button>
-          <button class="delete" @click=${this._handleDelete}>Delete</button>
+        <div class="right">
+          <div class="actions" @click=${(e: Event) => e.stopPropagation()}>
+            <button @click=${this._handleCopy}>Copy</button>
+            <button @click=${this._handlePaste}>Paste</button>
+            <button class="edit" @click=${this._handleEdit}>Edit</button>
+            <button class="pin" @click=${this._handlePin}>Pin</button>
+            <button class="delete" @click=${this._handleDelete}>Delete</button>
+          </div>
+          <div class="meta">
+            ${this.entry.pastedAt ? html`<span class="pasted-time" title="Last pasted">${this._formatPastedTime(this.entry.pastedAt)}</span>` : ''}
+            <span class="time">${this._formatTime(this.entry.timestamp)}</span>
+          </div>
         </div>
       </div>
     `;

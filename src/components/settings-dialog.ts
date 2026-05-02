@@ -4,9 +4,11 @@ import { SignalWatcher } from 'avosignals';
 import {
   historySize,
   shortcut,
+  sequentialPasteShortcut,
   themeMode,
   setHistorySize,
   setShortcut,
+  setSequentialPasteShortcut,
   setThemeMode,
   isSettingsOpen,
   type ThemeMode,
@@ -71,6 +73,9 @@ export class SettingsDialog extends LitElement {
   @state() private _shortcut = '';
   @state() private _shortcutDisplay = '';
   @state() private _capturing = false;
+  @state() private _seqShortcut = '';
+  @state() private _seqShortcutDisplay = '';
+  @state() private _capturingSeq = false;
   @state() private _error = '';
   @state() private _showTroubleshoot = false;
   @state() private _showHelp = false;
@@ -383,17 +388,22 @@ export class SettingsDialog extends LitElement {
     this._historySize = historySize.get();
     this._shortcut = shortcut.get();
     this._shortcutDisplay = formatAccelerator(shortcut.get());
+    this._seqShortcut = sequentialPasteShortcut.get();
+    this._seqShortcutDisplay = this._seqShortcut ? formatAccelerator(this._seqShortcut) : '';
     this._theme = themeMode.get();
   }
 
   disconnectedCallback(): void {
     super.disconnectedCallback();
     this._stopCapture();
+    this._stopCaptureSeq();
   }
 
   private _startCapture(): void {
     this._capturing = true;
+    this._capturingSeq = false;
     this._error = '';
+    window.removeEventListener('keydown', this._captureSeqKeydown, { capture: true });
     window.addEventListener('keydown', this._captureKeydown, { capture: true });
   }
 
@@ -419,6 +429,36 @@ export class SettingsDialog extends LitElement {
     this._stopCapture();
   };
 
+  private _startCaptureSeq(): void {
+    this._capturingSeq = true;
+    this._capturing = false;
+    this._error = '';
+    window.removeEventListener('keydown', this._captureKeydown, { capture: true });
+    window.addEventListener('keydown', this._captureSeqKeydown, { capture: true });
+  }
+
+  private _stopCaptureSeq(): void {
+    this._capturingSeq = false;
+    window.removeEventListener('keydown', this._captureSeqKeydown, { capture: true });
+  }
+
+  private _captureSeqKeydown = (e: KeyboardEvent): void => {
+    e.preventDefault();
+    e.stopImmediatePropagation();
+
+    if (e.key === 'Escape') {
+      this._stopCaptureSeq();
+      return;
+    }
+
+    const acc = buildAccelerator(e);
+    if (!acc) return;
+
+    this._seqShortcut = acc;
+    this._seqShortcutDisplay = formatAccelerator(acc);
+    this._stopCaptureSeq();
+  };
+
   private async _handleSave(): Promise<void> {
     this._error = '';
 
@@ -432,6 +472,10 @@ export class SettingsDialog extends LitElement {
       setShortcut(this._shortcut);
     }
 
+    if (this._seqShortcut !== sequentialPasteShortcut.get()) {
+      setSequentialPasteShortcut(this._seqShortcut);
+    }
+
     setHistorySize(this._historySize);
     setThemeMode(this._theme);
     isSettingsOpen.set(false);
@@ -439,6 +483,7 @@ export class SettingsDialog extends LitElement {
 
   private _handleCancel(): void {
     this._stopCapture();
+    this._stopCaptureSeq();
     isSettingsOpen.set(false);
   }
 
@@ -476,9 +521,9 @@ export class SettingsDialog extends LitElement {
   }
 
   // ---------------------------------------------------------------------------
-  // HELP LAST UPDATED: commit 2994656 (Add placeholder templating for paste) — 2026-04-30
+  // HELP LAST UPDATED: commit 4b80b41 (Add sequential paste + pastedAt tracking) — 2026-05-02
   //
-  // To check for features added since: git log --oneline 2994656..HEAD
+  // To check for features added since: git log --oneline 4b80b41..HEAD
   // Review each commit for user-facing changes, then update _renderHelp() below.
   // After updating, replace the commit hash above with the current HEAD hash and
   // update the date. See AGENTS.md for full instructions.
@@ -497,6 +542,7 @@ export class SettingsDialog extends LitElement {
           <div class="shortcut-row"><span class="shortcut-key">⌘N</span><span class="shortcut-desc">Create a new pin from scratch</span></div>
           <div class="shortcut-row"><span class="shortcut-key">⌘E</span><span class="shortcut-desc">Edit the most recently added pin</span></div>
           <div class="shortcut-row"><span class="shortcut-key">Esc</span><span class="shortcut-desc">Close / hide the window</span></div>
+          <div class="shortcut-row"><span class="shortcut-key">Sequential paste</span><span class="shortcut-desc">Paste next selected item and deselect it (configurable in Settings, requires export mode)</span></div>
         </div>
         <div class="help-section">
           <div class="help-section-title">Features</div>
@@ -514,6 +560,8 @@ export class SettingsDialog extends LitElement {
           <div class="feature-row"><span class="feature-name">Edit history</span><span class="shortcut-desc">Click Edit on any clipboard history item to modify its text before pasting or pinning</span></div>
           <div class="feature-row"><span class="feature-name">Pin Group</span><span class="shortcut-desc">In export mode, select items then click "Pin Group" to join them with a [TAB] or [ENTER] delimiter into a new paste-group pin; the result is also copied to your clipboard for immediate use</span></div>
           <div class="feature-row"><span class="feature-name">Placeholders</span><span class="shortcut-desc">Add <code>::name::</code> tokens to any pin or history item; clicking Paste prompts you to fill in each value before pasting</span></div>
+          <div class="feature-row"><span class="feature-name">Sequential paste</span><span class="shortcut-desc">Enter export mode, select items, then use your configured shortcut to paste them one-by-one — each paste auto-deselects that item; a notification appears when the selection is exhausted</span></div>
+          <div class="feature-row"><span class="feature-name">Paste time</span><span class="shortcut-desc">Items show when they were last pasted so you can easily tell what has already been pasted even without a selection</span></div>
         </div>
       </div>
       <div class="help-actions">
@@ -563,6 +611,24 @@ export class SettingsDialog extends LitElement {
               </button>
             </div>
             ${this._error ? html`<div class="error">${this._error}</div>` : ''}
+          </div>
+
+          <div class="field">
+            <label>Sequential paste shortcut</label>
+            <div class="shortcut-capture">
+              <span class="shortcut-badge" style="min-width:70px;color:${this._seqShortcutDisplay ? '' : 'var(--text-muted)'}">
+                ${this._seqShortcutDisplay || 'none'}
+              </span>
+              <button
+                class="capture-btn ${this._capturingSeq ? 'listening' : ''}"
+                @click=${() => this._capturingSeq ? this._stopCaptureSeq() : this._startCaptureSeq()}
+              >
+                ${this._capturingSeq ? 'Listening… (Esc to cancel)' : 'Change'}
+              </button>
+              ${this._seqShortcut ? html`
+                <button class="capture-btn" @click=${() => { this._seqShortcut = ''; this._seqShortcutDisplay = ''; }}>Clear</button>
+              ` : ''}
+            </div>
           </div>
 
           <div class="actions">

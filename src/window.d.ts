@@ -9,6 +9,7 @@ export interface PastryAPI {
   writeRichClipboard: (payload: { text: string; htmlContent: string }) => void;
   writeImageClipboard: (dataUrl: string) => void;
   pasteItem: (payload: ClipboardPayload) => void;
+  pasteItemKeepOpen: (payload: ClipboardPayload) => void;
   onClipboardChange: (callback: (payload: ClipboardPayload) => void) => () => void;
   loadStore: () => Promise<PastryStore | null>;
   saveStore: (data: PastryStore) => void;
@@ -32,6 +33,7 @@ export interface PastryStore {
   pinned: import('./shared-types').PinnedEntry[];
   historySize: number;
   shortcut?: string;
+  sequentialPasteShortcut?: string;
   themeMode?: string;
 }
 

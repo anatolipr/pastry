@@ -7,6 +7,7 @@ import {
   searchQuery, activeItem, combinedItems, moveActiveIndexInPanel, moveActivePanel, setActiveIndex,
   setNewPinOpen, setEditTarget, pinnedItems,
   hasPlaceholders, openPlaceholderPaste,
+  sequentialPasteShortcut, pasteNextSelected, recordPastedAt, isExportMode,
 } from '../store/clipboard-store';
 import './history-list';
 import './pinned-list';
@@ -148,6 +149,22 @@ export class PastryApp extends LitElement {
       flex-shrink: 0;
       letter-spacing: 0.02em;
     }
+    .seq-paste-toast {
+      position: fixed;
+      bottom: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--bg-dialog);
+      border: 1px solid var(--border-dialog);
+      border-radius: 8px;
+      padding: 8px 18px;
+      font-size: 12px;
+      color: var(--text-primary);
+      box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+      z-index: 200;
+      pointer-events: none;
+      white-space: nowrap;
+    }
   `;
 
   private _unsubWindowShown?: () => void;
@@ -196,6 +213,17 @@ export class PastryApp extends LitElement {
       }
     }
 
+    // Sequential paste shortcut (in-app keyboard shortcut, works in export mode)
+    const seqShortcut = sequentialPasteShortcut.get();
+if (seqShortcut && isExportMode.get() && this._matchesShortcut(e, seqShortcut)) {
+      e.preventDefault();
+      const ok = pasteNextSelected();
+      if (!ok) {
+        this._showSequentialPasteDone();
+      }
+      return;
+    }
+
     // Don't intercept when a dialog is open or user is editing pinned item text.
     if (isPinDialogOpen.get() || isUnpinDialogOpen.get() || isEditDialogOpen.get() || isHistoryEditDialogOpen.get() || isDeleteDialogOpen.get() || isSettingsOpen.get() || isNewPinOpen.get() || isReminderDialogOpen.get() || isPasteGroupDialogOpen.get() || isPlaceholderDialogOpen.get()) return;
 
@@ -238,6 +266,7 @@ export class PastryApp extends LitElement {
         if (!item.entry.imageDataUrl && hasPlaceholders(item.entry.text)) {
           openPlaceholderPaste({ text: item.entry.text, htmlContent: item.entry.htmlContent });
         } else {
+          recordPastedAt(item.entry.id, item.kind);
           window.pastryAPI.pasteItem({ text: item.entry.text, imageDataUrl: item.entry.imageDataUrl, htmlContent: item.entry.htmlContent });
         }
       }
@@ -277,6 +306,36 @@ export class PastryApp extends LitElement {
       active?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     });
   }
+
+  /** Check if a keyboard event matches a stored accelerator string (e.g. "CommandOrControl+Shift+V"). */
+  private _matchesShortcut(e: KeyboardEvent, accelerator: string): boolean {
+    const parts = accelerator.toLowerCase().split('+');
+    const needCmd = parts.includes('commandorcontrol') || parts.includes('command') || parts.includes('ctrl');
+    const needAlt = parts.includes('alt');
+    const needShift = parts.includes('shift');
+    const modifiers = new Set(['commandorcontrol', 'command', 'ctrl', 'alt', 'shift']);
+    const keyPart = parts.find((p) => !modifiers.has(p));
+    if (!keyPart) return false;
+    if (needCmd !== (e.metaKey || e.ctrlKey)) return false;
+    if (needAlt !== e.altKey) return false;
+    if (needShift !== e.shiftKey) return false;
+    const eKey = e.key.toLowerCase();
+    return eKey === keyPart || e.code.toLowerCase() === `key${keyPart}` || e.code.toLowerCase() === keyPart;
+  }
+
+  private _seqPasteDoneTimer?: ReturnType<typeof setTimeout>;
+
+  private _showSequentialPasteDone(): void {
+    this._seqPasteDoneToast = true;
+    this.requestUpdate();
+    if (this._seqPasteDoneTimer) clearTimeout(this._seqPasteDoneTimer);
+    this._seqPasteDoneTimer = setTimeout(() => {
+      this._seqPasteDoneToast = false;
+      this.requestUpdate();
+    }, 2500);
+  }
+
+  private _seqPasteDoneToast = false;
 
   private _onSearch(e: Event): void {
     searchQuery.set((e.target as HTMLInputElement).value);
@@ -340,6 +399,7 @@ export class PastryApp extends LitElement {
       ${isPasteGroupDialogOpen.get() ? html`<paste-group-dialog></paste-group-dialog>` : ''}
       ${isPlaceholderDialogOpen.get() ? html`<placeholder-dialog></placeholder-dialog>` : ''}
       ${isSettingsOpen.get() ? html`<settings-dialog></settings-dialog>` : ''}
+      ${this._seqPasteDoneToast ? html`<div class="seq-paste-toast">No more items selected</div>` : ''}
     `;
   }
 }

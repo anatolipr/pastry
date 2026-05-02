@@ -8,7 +8,7 @@ import {
   togglePinExportItem, togglePinExportAll,
   exportCombined, copySelectedCombined,
   importPins, allTags, tagFilter, setTagFilter, setNewPinOpen,
-  openPasteGroupDialog,
+  openPasteGroupDialog, pasteNextSelected,
 } from '../store/clipboard-store';
 import './pinned-item';
 
@@ -74,6 +74,14 @@ export class PinnedList extends LitElement {
       color: var(--accent-pinned);
     }
     .btn-group:disabled {
+      opacity: 0.4;
+      cursor: default;
+    }
+    .btn-seq {
+      background: var(--accent-history-bg);
+      color: var(--accent-history);
+    }
+    .btn-seq:disabled {
       opacity: 0.4;
       cursor: default;
     }
@@ -215,6 +223,10 @@ export class PinnedList extends LitElement {
     await importPins();
   }
 
+  private _doSeqPaste() {
+    pasteNextSelected();
+  }
+
   private toggleTagFilter(tag: string) {
     const current = tagFilter.get();
     if (current.includes(tag)) {
@@ -252,6 +264,11 @@ export class PinnedList extends LitElement {
                 @click=${() => openPasteGroupDialog()}
                 title="Join selected items into a paste group and pin it"
               >Pin Group</button>
+              <button class="btn btn-seq"
+                ?disabled=${totalSelected === 0}
+                @click=${this._doSeqPaste}
+                title="Paste next selected item and deselect it"
+              >Seq. Paste</button>
               <button class="btn btn-copy"
                 ?disabled=${totalSelected === 0}
                 @click=${this._doCopy}

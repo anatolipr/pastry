@@ -18,6 +18,10 @@ const api: PastryAPI = {
     ipcRenderer.send('clipboard:paste', payload);
   },
 
+  pasteItemKeepOpen(payload): void {
+    ipcRenderer.send('clipboard:paste-keep-open', payload);
+  },
+
   onClipboardChange(callback) {
     const handler = (_event: Electron.IpcRendererEvent, payload: { text: string; imageDataUrl?: string; htmlContent?: string }) =>
       callback(payload);

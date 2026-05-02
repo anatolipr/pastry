@@ -4,6 +4,7 @@ export interface ClipboardEntry {
   timestamp: number;
   imageDataUrl?: string; // set when a image was copied; text is empty in that case
   htmlContent?: string;  // set when rich-text HTML was available at copy time
+  pastedAt?: number;     // UTC ms timestamp of most recent paste
 }
 
 export interface PinnedEntry {
@@ -16,4 +17,5 @@ export interface PinnedEntry {
   tags?: string[];
   reminderAt?: number; // UTC ms timestamp for scheduled reminder
   hidden?: boolean;    // when true, content is masked in the list view
+  pastedAt?: number;   // UTC ms timestamp of most recent paste
 }
