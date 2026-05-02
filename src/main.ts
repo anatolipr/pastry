@@ -154,7 +154,17 @@ ipcMain.on('window:hide', () => {
 
 // Track what Pastry itself writes so the watcher doesn't re-add it to history.
 let lastClipboardText = '';
-let lastImageSignature = ''; // length+prefix to detect changes without full compare
+let lastImageSignature = ''; // PNG-buffer length + first 16 bytes as hex
+
+function imageSignature(native: Electron.NativeImage): string {
+  const { width, height } = native.getSize();
+  const bitmap = native.toBitmap();
+  // Sample a few pixels spread across the bitmap for a fast but reliable signature.
+  const stride = Math.max(1, Math.floor(bitmap.length / 8));
+  let sample = '';
+  for (let i = 0; i < bitmap.length; i += stride) sample += bitmap[i].toString(16);
+  return `${width}x${height}:${sample}`;
+}
 let openPreviewCount = 0;
 
 ipcMain.on('clipboard:write', (_event, text: string) => {
@@ -175,7 +185,7 @@ ipcMain.on('clipboard:write-rich', (_event, payload: { text: string; htmlContent
 
 ipcMain.on('clipboard:history-deleted', (_event, payload: { text?: string; imageDataUrl?: string }) => {
   if (payload.imageDataUrl) {
-    const sig = `${payload.imageDataUrl.length}:${payload.imageDataUrl.slice(0, 40)}`;
+    const sig = imageSignature(nativeImage.createFromDataURL(payload.imageDataUrl));
     if (sig === lastImageSignature) lastImageSignature = '';
   } else if (payload.text !== undefined && payload.text === lastClipboardText) {
     lastClipboardText = '';
@@ -183,10 +193,9 @@ ipcMain.on('clipboard:history-deleted', (_event, payload: { text?: string; image
 });
 
 ipcMain.on('clipboard:write-image', (_event, dataUrl: string) => {
-  const sig = `${dataUrl.length}:${dataUrl.slice(0, 40)}`;
-  lastImageSignature = sig;
-  lastClipboardText = '';
   const native = nativeImage.createFromDataURL(dataUrl);
+  lastImageSignature = imageSignature(native);
+  lastClipboardText = '';
   clipboard.writeImage(native);
 });
 
@@ -309,10 +318,10 @@ ipcMain.on('clipboard:paste', (_event, payload: { text?: string; imageDataUrl?: 
 
   // Standard single-paste path — track what we write so the watcher doesn't re-add it.
   if (payload.imageDataUrl) {
-    const sig = `${payload.imageDataUrl.length}:${payload.imageDataUrl.slice(0, 40)}`;
-    lastImageSignature = sig;
+    const native = nativeImage.createFromDataURL(payload.imageDataUrl);
+    lastImageSignature = imageSignature(native);
     lastClipboardText = '';
-    clipboard.writeImage(nativeImage.createFromDataURL(payload.imageDataUrl));
+    clipboard.writeImage(native);
   } else if (payload.htmlContent) {
     lastClipboardText = payload.text ?? '';
     lastImageSignature = '';
@@ -340,10 +349,10 @@ ipcMain.on('clipboard:paste', (_event, payload: { text?: string; imageDataUrl?: 
 ipcMain.on('clipboard:paste-keep-open', (_event, payload: { text?: string; imageDataUrl?: string; htmlContent?: string }) => {
   // Track what we're writing so the watcher doesn't re-add it as a new history entry.
   if (payload.imageDataUrl) {
-    const sig = `${payload.imageDataUrl.length}:${payload.imageDataUrl.slice(0, 40)}`;
-    lastImageSignature = sig;
+    const native = nativeImage.createFromDataURL(payload.imageDataUrl);
+    lastImageSignature = imageSignature(native);
     lastClipboardText = '';
-    clipboard.writeImage(nativeImage.createFromDataURL(payload.imageDataUrl));
+    clipboard.writeImage(native);
   } else if (payload.htmlContent) {
     lastClipboardText = payload.text ?? '';
     lastImageSignature = '';
@@ -370,23 +379,11 @@ const DEFAULT_MAX_IMAGE_SIZE_MB = 5;
 let imageSizeLimitBytes = DEFAULT_MAX_IMAGE_SIZE_MB * 1024 * 1024;
 
 function startClipboardWatcher(): void {
+  let tick = 0;
   setInterval(() => {
-    const img = clipboard.readImage();
-    if (!img.isEmpty()) {
-      let dataUrl = img.toDataURL();
-      if (dataUrl.length > imageSizeLimitBytes) {
-        dataUrl = img.toJPEG(85).toString('base64');
-        dataUrl = `data:image/jpeg;base64,${dataUrl}`;
-      }
-      const sig = `${dataUrl.length}:${dataUrl.slice(0, 40)}`;
-      if (sig === lastImageSignature) return;
-      lastImageSignature = sig;
-      lastClipboardText = '';
-      if (dataUrl.length <= imageSizeLimitBytes) {
-        mainWindow?.webContents.send('clipboard:change', { imageDataUrl: dataUrl, text: '' });
-      }
-      return;
-    }
+    tick++;
+
+    // Check text on every tick — readText() is cheap.
     const current = clipboard.readText();
     if (current !== lastClipboardText) {
       lastClipboardText = current;
@@ -396,6 +393,27 @@ function startClipboardWatcher(): void {
       // (i.e. it contains markup tags, not just a plain-text wrapper).
       const htmlContent = html && /<[a-z]/i.test(html) ? html : undefined;
       mainWindow?.webContents.send('clipboard:change', { text: current, imageDataUrl: undefined, htmlContent });
+      return;
+    }
+
+    // Check for images only every 4 ticks (~2s) — readImage()+toPNG() is expensive.
+    if (tick % 4 !== 0) return;
+
+    const img = clipboard.readImage();
+    if (img.isEmpty()) return;
+
+    const sig = imageSignature(img);
+    if (sig === lastImageSignature) return;
+
+    let dataUrl = img.toDataURL();
+    if (dataUrl.length > imageSizeLimitBytes) {
+      dataUrl = img.toJPEG(85).toString('base64');
+      dataUrl = `data:image/jpeg;base64,${dataUrl}`;
+    }
+    lastImageSignature = sig;
+    lastClipboardText = '';
+    if (dataUrl.length <= imageSizeLimitBytes) {
+      mainWindow?.webContents.send('clipboard:change', { imageDataUrl: dataUrl, text: '' });
     }
   }, POLL_INTERVAL_MS);
 }
