@@ -209,6 +209,7 @@ export class ActionsApp extends LitElement {
             @click=${() => this._runAction(entry)}
             @contextmenu=${(e: Event) => { e.preventDefault(); editActionTarget.set(entry); }}
             @edit-action=${() => editActionTarget.set(entry)}
+            @delete-action=${() => deleteActionTarget.set(entry)}
           ></action-item>
         `)}
       </div>
