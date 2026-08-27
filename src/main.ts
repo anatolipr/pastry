@@ -4,8 +4,9 @@ import os from 'node:os';
 import { exec, execFile } from 'node:child_process';
 import fs from 'node:fs';
 import started from 'electron-squirrel-startup';
-import { GLOBAL_SHORTCUT, ACTIONS_SHORTCUT, POLL_INTERVAL_MS } from './constants';
+import { GLOBAL_SHORTCUT, ACTIONS_SHORTCUT, POLL_INTERVAL_MS, DOUBLE_TAP_WINDOW_MS, DOUBLE_TAP_MAX_HOLD_MS } from './constants';
 import type { FormStep } from './shared-types';
+import type * as UiohookNapi from 'uiohook-napi';
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (started) {
@@ -20,6 +21,7 @@ let previousAppForActions = '';
 let tray: Tray | null = null;
 let previousApp = '';
 let currentShortcut = GLOBAL_SHORTCUT;
+let currentActionsShortcut = ACTIONS_SHORTCUT;
 const reminderTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
 function drawScissors(size: number, rgb: [number, number, number] = [0, 0, 0]): Buffer {
@@ -944,6 +946,107 @@ ipcMain.handle('shortcut:register', (_event, newShortcut: string) => {
   return ok;
 });
 
+ipcMain.handle('actions-shortcut:register', (_event, newShortcut: string) => {
+  globalShortcut.unregister(currentActionsShortcut);
+  const ok = globalShortcut.register(newShortcut, toggleActionsWindow);
+  if (ok) {
+    currentActionsShortcut = newShortcut;
+  } else {
+    // Restore the previous shortcut so the actions window remains accessible.
+    globalShortcut.register(currentActionsShortcut, toggleActionsWindow);
+  }
+  return ok;
+});
+
+// ---------------------------------------------------------------------------
+// Double-tap Cmd — global, opens the Actions launcher
+// ---------------------------------------------------------------------------
+
+let doubleTapActionsEnabled = true;
+let doubleTapHookStarted = false;
+let metaDownAt: number | null = null;
+let metaComboUsed = false;
+let lastSoloMetaTapAt = 0;
+
+// Loaded lazily via require() (not a static import) so a missing/incompatible
+// native binary on some platform/arch can never crash app startup — it just
+// disables the double-tap feature.
+let uiohook: typeof UiohookNapi | null = null;
+try {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  uiohook = require('uiohook-napi');
+} catch (err) {
+  console.error('[pastry] uiohook-napi native module unavailable — double-tap Cmd will be disabled:', err);
+}
+
+function isMetaKeycode(keycode: number): boolean {
+  if (!uiohook) return false;
+  return keycode === uiohook.UiohookKey.Meta || keycode === uiohook.UiohookKey.MetaRight;
+}
+
+if (uiohook) {
+  uiohook.uIOhook.on('keydown', (e) => {
+    if (isMetaKeycode(e.keycode)) {
+      if (metaDownAt === null) {
+        metaDownAt = Date.now();
+        metaComboUsed = false;
+      }
+    } else if (metaDownAt !== null) {
+      // Some other key went down while Cmd is held — this is a combo, not a tap.
+      metaComboUsed = true;
+    }
+  });
+
+  uiohook.uIOhook.on('keyup', (e) => {
+    if (!isMetaKeycode(e.keycode)) return;
+    const downAt = metaDownAt;
+    metaDownAt = null;
+    if (downAt === null) return;
+
+    const heldMs = Date.now() - downAt;
+    if (metaComboUsed || heldMs > DOUBLE_TAP_MAX_HOLD_MS) {
+      lastSoloMetaTapAt = 0;
+      return;
+    }
+
+    const now = Date.now();
+    if (now - lastSoloMetaTapAt <= DOUBLE_TAP_WINDOW_MS) {
+      lastSoloMetaTapAt = 0;
+      toggleActionsWindow();
+    } else {
+      lastSoloMetaTapAt = now;
+    }
+  });
+}
+
+function startDoubleTapListener(): void {
+  if (doubleTapHookStarted || !uiohook) return;
+  try {
+    uiohook.uIOhook.start();
+    doubleTapHookStarted = true;
+  } catch (err) {
+    console.error('[pastry] failed to start double-tap listener (uiohook):', err);
+  }
+}
+
+function stopDoubleTapListener(): void {
+  if (!doubleTapHookStarted || !uiohook) return;
+  uiohook.uIOhook.stop();
+  doubleTapHookStarted = false;
+  metaDownAt = null;
+  metaComboUsed = false;
+  lastSoloMetaTapAt = 0;
+}
+
+ipcMain.on('settings:double-tap-actions-enabled', (_event, enabled: boolean) => {
+  doubleTapActionsEnabled = enabled;
+  if (enabled) {
+    startDoubleTapListener();
+  } else {
+    stopDoubleTapListener();
+  }
+});
+
 // ---------------------------------------------------------------------------
 // Form action — "waiting for page to load" popup
 // ---------------------------------------------------------------------------
@@ -1153,6 +1256,12 @@ app.on('ready', () => {
     if (typeof data.shortcut === 'string' && data.shortcut) {
       currentShortcut = data.shortcut;
     }
+    if (typeof data.actionsShortcut === 'string' && data.actionsShortcut) {
+      currentActionsShortcut = data.actionsShortcut;
+    }
+    if (typeof data.doubleTapActionsEnabled === 'boolean') {
+      doubleTapActionsEnabled = data.doubleTapActionsEnabled;
+    }
   } catch {
     // File doesn't exist yet or is invalid — use the default.
   }
@@ -1161,8 +1270,11 @@ app.on('ready', () => {
   createActionsWindow();
   startClipboardWatcher();
   globalShortcut.register(currentShortcut, toggleWindow);
-  if (!globalShortcut.register(ACTIONS_SHORTCUT, toggleActionsWindow)) {
-    console.error(`[pastry] failed to register actions shortcut ${ACTIONS_SHORTCUT} — likely already bound by another app`);
+  if (!globalShortcut.register(currentActionsShortcut, toggleActionsWindow)) {
+    console.error(`[pastry] failed to register actions shortcut ${currentActionsShortcut} — likely already bound by another app`);
+  }
+  if (doubleTapActionsEnabled) {
+    startDoubleTapListener();
   }
 
   tray = new Tray(createTrayIcon());
@@ -1174,6 +1286,7 @@ app.on('ready', () => {
 });
 
 app.on('will-quit', () => {
+  stopDoubleTapListener();
   globalShortcut.unregisterAll();
   for (const timer of reminderTimers.values()) clearTimeout(timer);
   reminderTimers.clear();

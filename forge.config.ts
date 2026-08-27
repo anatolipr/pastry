@@ -7,12 +7,33 @@ import { VitePlugin } from '@electron-forge/plugin-vite';
 import { FusesPlugin } from '@electron-forge/plugin-fuses';
 import { FuseV1Options, FuseVersion } from '@electron/fuses';
 import { execSync } from 'node:child_process';
+import fs from 'node:fs';
+import path from 'node:path';
+
+// The Vite plugin ships only the `.vite` build output — node_modules is never
+// copied into the package. uiohook-napi (used for the double-tap-Cmd feature)
+// has a native .node binary that can't be bundled by Rollup, so it's staged
+// here into a standalone `node_modules` folder and shipped via
+// `extraResource`, landing at Contents/Resources/node_modules — a location
+// Node's module resolution walks up into from inside main.js, asar or not.
+const nativeStagingDir = path.join(__dirname, '.native-staging');
+const NATIVE_DEPS = ['uiohook-napi', 'node-gyp-build'];
+
+function stageNativeDeps(): void {
+  const dest = path.join(nativeStagingDir, 'node_modules');
+  fs.rmSync(nativeStagingDir, { recursive: true, force: true });
+  fs.mkdirSync(dest, { recursive: true });
+  for (const dep of NATIVE_DEPS) {
+    fs.cpSync(path.join(__dirname, 'node_modules', dep), path.join(dest, dep), { recursive: true });
+  }
+}
 
 const config: ForgeConfig = {
   packagerConfig: {
     asar: true,
     icon: 'assets/AppIcon',
     appBundleId: 'com.anatoli.pastry',
+    extraResource: [path.join(nativeStagingDir, 'node_modules')],
     extendInfo: {
       NSAppleEventsUsageDescription:
         'Pastry needs to send keystrokes to paste clipboard items into other apps.',
@@ -21,6 +42,9 @@ const config: ForgeConfig = {
     },
   },
   hooks: {
+    prePackage: async () => {
+      stageNativeDeps();
+    },
     postPackage: async (_config, options) => {
       if (options.platform !== 'darwin') return;
       const appPath = options.outputPaths

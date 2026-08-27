@@ -90,6 +90,7 @@ typings/
 
 # Electron-Forge
 out/
+.native-staging/
 
 # Playwright
 test-results/

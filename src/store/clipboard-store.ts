@@ -1,6 +1,6 @@
 import { Signal, Computed } from 'avosignals';
 import type { ClipboardEntry, PinnedEntry } from '../shared-types';
-import { DEFAULT_HISTORY_SIZE, GLOBAL_SHORTCUT } from '../constants';
+import { DEFAULT_HISTORY_SIZE, GLOBAL_SHORTCUT, ACTIONS_SHORTCUT } from '../constants';
 
 export type ActiveItem =
   | { kind: 'history'; entry: ClipboardEntry }
@@ -15,6 +15,8 @@ export const pinnedItems = new Signal<PinnedEntry[]>([], 'pinnedItems');
 export const historySize = new Signal<number>(DEFAULT_HISTORY_SIZE, 'historySize');
 export const maxImageSizeMb = new Signal<number>(5, 'maxImageSizeMb');
 export const shortcut = new Signal<string>(GLOBAL_SHORTCUT, 'shortcut');
+export const actionsShortcut = new Signal<string>(ACTIONS_SHORTCUT, 'actionsShortcut');
+export const doubleTapActionsEnabled = new Signal<boolean>(true, 'doubleTapActionsEnabled');
 export const sequentialPasteShortcut = new Signal<string>('', 'sequentialPasteShortcut');
 export const searchQuery = new Signal<string>('', 'searchQuery');
 export const tagFilter = new Signal<string[]>([], 'tagFilter');
@@ -441,6 +443,17 @@ export function setShortcut(s: string): void {
   persistStore();
 }
 
+export function setActionsShortcut(s: string): void {
+  actionsShortcut.set(s);
+  persistStore();
+}
+
+export function setDoubleTapActionsEnabled(enabled: boolean): void {
+  doubleTapActionsEnabled.set(enabled);
+  window.pastryAPI.setDoubleTapActionsEnabled(enabled);
+  persistStore();
+}
+
 export function setSequentialPasteShortcut(s: string): void {
   sequentialPasteShortcut.set(s);
   persistStore();
@@ -812,6 +825,8 @@ export function persistStore(): void {
       historySize: historySize.get(),
       maxImageSizeMb: maxImageSizeMb.get(),
       shortcut: shortcut.get(),
+      actionsShortcut: actionsShortcut.get(),
+      doubleTapActionsEnabled: doubleTapActionsEnabled.get(),
       sequentialPasteShortcut: sequentialPasteShortcut.get(),
       themeMode: themeMode.get(),
     });
@@ -827,6 +842,8 @@ export async function loadPersistedStore(): Promise<void> {
   if (typeof data.historySize === 'number') historySize.set(data.historySize);
   if (typeof data.maxImageSizeMb === 'number' && data.maxImageSizeMb > 0) maxImageSizeMb.set(data.maxImageSizeMb);
   if (typeof data.shortcut === 'string' && data.shortcut) shortcut.set(data.shortcut);
+  if (typeof data.actionsShortcut === 'string' && data.actionsShortcut) actionsShortcut.set(data.actionsShortcut);
+  if (typeof data.doubleTapActionsEnabled === 'boolean') doubleTapActionsEnabled.set(data.doubleTapActionsEnabled);
   if (typeof data.sequentialPasteShortcut === 'string') sequentialPasteShortcut.set(data.sequentialPasteShortcut);
   if (data.themeMode === 'dark' || data.themeMode === 'light' || data.themeMode === 'auto') themeMode.set(data.themeMode);
   // Re-register any future reminders so timers fire even after a restart.

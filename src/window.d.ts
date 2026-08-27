@@ -16,6 +16,8 @@ export interface PastryAPI {
   saveStore: (data: PastryStore) => void;
   hideWindow: () => void;
   registerShortcut: (shortcut: string) => Promise<boolean>;
+  registerActionsShortcut: (shortcut: string) => Promise<boolean>;
+  setDoubleTapActionsEnabled: (enabled: boolean) => void;
   exportPins: (data: unknown) => Promise<boolean>;
   importPins: () => Promise<unknown>;
   notifyHistoryDeleted: (payload: ClipboardPayload) => void;
@@ -49,6 +51,8 @@ export interface PastryStore {
   historySize: number;
   maxImageSizeMb?: number;
   shortcut?: string;
+  actionsShortcut?: string;
+  doubleTapActionsEnabled?: boolean;
   sequentialPasteShortcut?: string;
   themeMode?: string;
   actions?: import('./shared-types').ActionEntry[];

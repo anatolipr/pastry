@@ -5,11 +5,15 @@ import {
   historySize,
   maxImageSizeMb,
   shortcut,
+  actionsShortcut,
+  doubleTapActionsEnabled,
   sequentialPasteShortcut,
   themeMode,
   setHistorySize,
   setMaxImageSizeMb,
   setShortcut,
+  setActionsShortcut,
+  setDoubleTapActionsEnabled,
   setSequentialPasteShortcut,
   setThemeMode,
   isSettingsOpen,
@@ -76,6 +80,10 @@ export class SettingsDialog extends LitElement {
   @state() private _shortcut = '';
   @state() private _shortcutDisplay = '';
   @state() private _capturing = false;
+  @state() private _actionsShortcut = '';
+  @state() private _actionsShortcutDisplay = '';
+  @state() private _capturingActions = false;
+  @state() private _doubleTapActionsEnabled = true;
   @state() private _seqShortcut = '';
   @state() private _seqShortcutDisplay = '';
   @state() private _capturingSeq = false;
@@ -180,6 +188,26 @@ export class SettingsDialog extends LitElement {
       font-size: 11px;
       color: var(--accent-danger);
       margin-top: 8px;
+    }
+    .checkbox-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .checkbox-row input[type=checkbox] {
+      width: auto;
+      padding: 0;
+      margin: 0;
+      cursor: pointer;
+      accent-color: var(--accent-history);
+      flex-shrink: 0;
+    }
+    .checkbox-row label {
+      margin: 0;
+      cursor: pointer;
+      font-size: 12px;
+      color: var(--text-secondary);
     }
     .actions {
       display: flex;
@@ -392,6 +420,9 @@ export class SettingsDialog extends LitElement {
     this._maxImageSizeMb = maxImageSizeMb.get();
     this._shortcut = shortcut.get();
     this._shortcutDisplay = formatAccelerator(shortcut.get());
+    this._actionsShortcut = actionsShortcut.get();
+    this._actionsShortcutDisplay = formatAccelerator(actionsShortcut.get());
+    this._doubleTapActionsEnabled = doubleTapActionsEnabled.get();
     this._seqShortcut = sequentialPasteShortcut.get();
     this._seqShortcutDisplay = this._seqShortcut ? formatAccelerator(this._seqShortcut) : '';
     this._theme = themeMode.get();
@@ -400,13 +431,16 @@ export class SettingsDialog extends LitElement {
   disconnectedCallback(): void {
     super.disconnectedCallback();
     this._stopCapture();
+    this._stopCaptureActions();
     this._stopCaptureSeq();
   }
 
   private _startCapture(): void {
     this._capturing = true;
+    this._capturingActions = false;
     this._capturingSeq = false;
     this._error = '';
+    window.removeEventListener('keydown', this._captureActionsKeydown, { capture: true });
     window.removeEventListener('keydown', this._captureSeqKeydown, { capture: true });
     window.addEventListener('keydown', this._captureKeydown, { capture: true });
   }
@@ -433,11 +467,45 @@ export class SettingsDialog extends LitElement {
     this._stopCapture();
   };
 
+  private _startCaptureActions(): void {
+    this._capturingActions = true;
+    this._capturing = false;
+    this._capturingSeq = false;
+    this._error = '';
+    window.removeEventListener('keydown', this._captureKeydown, { capture: true });
+    window.removeEventListener('keydown', this._captureSeqKeydown, { capture: true });
+    window.addEventListener('keydown', this._captureActionsKeydown, { capture: true });
+  }
+
+  private _stopCaptureActions(): void {
+    this._capturingActions = false;
+    window.removeEventListener('keydown', this._captureActionsKeydown, { capture: true });
+  }
+
+  private _captureActionsKeydown = (e: KeyboardEvent): void => {
+    e.preventDefault();
+    e.stopImmediatePropagation();
+
+    if (e.key === 'Escape') {
+      this._stopCaptureActions();
+      return;
+    }
+
+    const acc = buildAccelerator(e);
+    if (!acc) return; // modifier-only keypress — wait for the main key
+
+    this._actionsShortcut = acc;
+    this._actionsShortcutDisplay = formatAccelerator(acc);
+    this._stopCaptureActions();
+  };
+
   private _startCaptureSeq(): void {
     this._capturingSeq = true;
     this._capturing = false;
+    this._capturingActions = false;
     this._error = '';
     window.removeEventListener('keydown', this._captureKeydown, { capture: true });
+    window.removeEventListener('keydown', this._captureActionsKeydown, { capture: true });
     window.addEventListener('keydown', this._captureSeqKeydown, { capture: true });
   }
 
@@ -466,7 +534,7 @@ export class SettingsDialog extends LitElement {
   private async _handleSave(): Promise<void> {
     this._error = '';
 
-    // Apply shortcut change first (requires IPC to main process).
+    // Apply shortcut changes first (requires IPC to main process).
     if (this._shortcut !== shortcut.get()) {
       const ok = await window.pastryAPI.registerShortcut(this._shortcut);
       if (!ok) {
@@ -474,6 +542,19 @@ export class SettingsDialog extends LitElement {
         return;
       }
       setShortcut(this._shortcut);
+    }
+
+    if (this._actionsShortcut !== actionsShortcut.get()) {
+      const ok = await window.pastryAPI.registerActionsShortcut(this._actionsShortcut);
+      if (!ok) {
+        this._error = 'Actions shortcut is already in use. Try a different combination.';
+        return;
+      }
+      setActionsShortcut(this._actionsShortcut);
+    }
+
+    if (this._doubleTapActionsEnabled !== doubleTapActionsEnabled.get()) {
+      setDoubleTapActionsEnabled(this._doubleTapActionsEnabled);
     }
 
     if (this._seqShortcut !== sequentialPasteShortcut.get()) {
@@ -488,6 +569,7 @@ export class SettingsDialog extends LitElement {
 
   private _handleCancel(): void {
     this._stopCapture();
+    this._stopCaptureActions();
     this._stopCaptureSeq();
     isSettingsOpen.set(false);
   }
@@ -535,11 +617,16 @@ export class SettingsDialog extends LitElement {
   // ---------------------------------------------------------------------------
   private _renderHelp() {
     const globalShortcut = formatAccelerator(this._shortcut || shortcut.get());
+    const actionsGlobalShortcut = formatAccelerator(this._actionsShortcut || actionsShortcut.get());
     return html`
       <div class="help-content">
         <div class="help-section">
           <div class="help-section-title">Keyboard Shortcuts</div>
           <div class="shortcut-row"><span class="shortcut-key">${globalShortcut}</span><span class="shortcut-desc">Open / show Pastry (global, configurable)</span></div>
+          <div class="shortcut-row"><span class="shortcut-key">${actionsGlobalShortcut}</span><span class="shortcut-desc">Open the Actions launcher (global, configurable)</span></div>
+          ${this._doubleTapActionsEnabled ? html`
+            <div class="shortcut-row"><span class="shortcut-key">⌘⌘</span><span class="shortcut-desc">Double-tap Cmd to open the Actions launcher (global, toggle in Settings)</span></div>
+          ` : ''}
           <div class="shortcut-row"><span class="shortcut-key">↑ ↓</span><span class="shortcut-desc">Navigate items</span></div>
           <div class="shortcut-row"><span class="shortcut-key">← →</span><span class="shortcut-desc">Switch between History and Pins panel</span></div>
           <div class="shortcut-row"><span class="shortcut-key">Enter</span><span class="shortcut-desc">Paste selected item into last active app</span></div>
@@ -630,6 +717,24 @@ export class SettingsDialog extends LitElement {
               </button>
             </div>
             ${this._error ? html`<div class="error">${this._error}</div>` : ''}
+          </div>
+
+          <div class="field">
+            <label>Actions shortcut</label>
+            <div class="shortcut-capture">
+              <span class="shortcut-badge">${this._actionsShortcutDisplay}</span>
+              <button
+                class="capture-btn ${this._capturingActions ? 'listening' : ''}"
+                @click=${() => this._capturingActions ? this._stopCaptureActions() : this._startCaptureActions()}
+              >
+                ${this._capturingActions ? 'Listening… (Esc to cancel)' : 'Change'}
+              </button>
+            </div>
+            <div class="checkbox-row">
+              <input type="checkbox" id="double-tap-actions" .checked=${this._doubleTapActionsEnabled}
+                @change=${(e: Event) => { this._doubleTapActionsEnabled = (e.target as HTMLInputElement).checked; }} />
+              <label for="double-tap-actions">Also open on double-tap ⌘ (global, works from any app)</label>
+            </div>
           </div>
 
           <div class="field">

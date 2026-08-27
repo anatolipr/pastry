@@ -49,6 +49,14 @@ const api: PastryAPI = {
     return ipcRenderer.invoke('shortcut:register', shortcut);
   },
 
+  registerActionsShortcut(shortcut: string): Promise<boolean> {
+    return ipcRenderer.invoke('actions-shortcut:register', shortcut);
+  },
+
+  setDoubleTapActionsEnabled(enabled: boolean): void {
+    ipcRenderer.send('settings:double-tap-actions-enabled', enabled);
+  },
+
   exportPins(data: unknown): Promise<boolean> {
     return ipcRenderer.invoke('pins:export', data);
   },
