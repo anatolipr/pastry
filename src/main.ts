@@ -310,8 +310,11 @@ function escapeForAppleScriptString(value: string): string {
 
 /** Runs a paste-group sequence: activates `targetApp` (if given), then for each
  * segment sets the clipboard and sends Cmd+V, followed by the separator key
- * (Tab/Enter) from `separators[i]` when present (one fewer separator than segments). */
-function runPasteGroup(segments: string[], separators: string[], targetApp: string): void {
+ * (Tab/Enter) from `separators[i]` when present (one fewer separator than segments).
+ * `postDelaySec[i]`, when given, overrides the default 0.08s pause after that
+ * separator's keystroke — used to give an in-memory page transition time to settle
+ * before the next paste, since that gap lives inside this one AppleScript run. */
+function runPasteGroup(segments: string[], separators: string[], targetApp: string, postDelaySec: Record<number, number> = {}): void {
   const lines: string[] = [];
   if (targetApp) {
     lines.push(`set frontmost of (first application process whose name is "${targetApp}") to true`);
@@ -324,7 +327,7 @@ function runPasteGroup(segments: string[], separators: string[], targetApp: stri
       lines.push(`delay 0.08`);
       const sep = separators[i];
       lines.push(sep === '[ENTER]' ? `key code 36` : `key code 48`); // Return : Tab
-      lines.push(`delay 0.08`);
+      lines.push(`delay ${postDelaySec[i] ?? 0.08}`);
     }
   }
   const osaLines = lines.map((l) => `-e 'tell application "System Events" to ${l}'`).join(' ');
@@ -936,11 +939,20 @@ const FORM_WAITING_HTML = `<!DOCTYPE html>
 let formWaitingWindow: BrowserWindow | null = null;
 let pendingFormSteps: FormStep[] = [];
 let pendingFormTargetApp = '';
+let pendingFormStepIndex = 0;
+let formAdvancing = false;
+
+// Post-keystroke delay (baked into the AppleScript, see buildPasteGroup) used in place
+// of the waiting popup when a step has waitForLoad:false — this is the only pause an
+// in-memory/JS-only page transition gets before the next field is pasted into it, so
+// keep it comfortably above a typical client-side route change / re-render.
+const SKIP_WAIT_DELAY_MS = 600;
 
 ipcMain.on('action:run-form', (_event, payload: { url: string; steps: FormStep[] }) => {
   // Discard any previous unresolved popup rather than leaving it orphaned on screen.
   formWaitingWindow?.close();
   pendingFormSteps = payload.steps;
+  pendingFormStepIndex = 0;
   // execFile bypasses the shell entirely, so the URL can't trigger command substitution.
   execFile('open', [payload.url], (err, _stdout, stderr) => {
     if (err) log(`action:run-form open failed: ${err.message} | stderr: ${stderr}`);
@@ -958,6 +970,56 @@ ipcMain.on('action:run-form', (_event, payload: { url: string; steps: FormStep[]
   }, 600);
 });
 
+/** Builds paste-group segments/separators/per-separator delays for a contiguous run of
+ * steps. A step with `waitForLoad: false` gets a longer post-keystroke delay before the
+ * next paste, giving an in-memory/JS-only page transition time to settle — the whole
+ * chunk still runs as one AppleScript invocation, so this delay must live in the script
+ * itself rather than as a setTimeout in Node (which would only run before the script
+ * starts, not between keystrokes inside it). */
+function buildPasteGroup(steps: FormStep[]): { segments: string[]; separators: string[]; postDelaySec: Record<number, number> } {
+  const segments = steps.map((s) => s.value);
+  const separators = steps.slice(0, -1).map((s) =>
+    s.then === 'enter' ? '[ENTER]' : s.then === 'tab' ? '[TAB]' : '[NONE]',
+  );
+  const postDelaySec: Record<number, number> = {};
+  steps.slice(0, -1).forEach((s, i) => {
+    if (s.waitForLoad === false) postDelaySec[i] = SKIP_WAIT_DELAY_MS / 1000;
+  });
+  // The last step's own "then" (e.g. Enter to submit, or Enter to advance to the next
+  // page) still needs to fire after its paste, so treat it as a trailing separator
+  // followed by an empty final segment.
+  if (steps.length > 0 && steps[steps.length - 1].then !== 'none') {
+    const last = steps[steps.length - 1];
+    separators.push(last.then === 'enter' ? '[ENTER]' : '[TAB]');
+    segments.push('');
+    if (last.waitForLoad === false) postDelaySec[separators.length - 1] = SKIP_WAIT_DELAY_MS / 1000;
+  }
+  return { segments, separators, postDelaySec };
+}
+
+/** Runs steps starting at `startIndex`, extending the paste-group burst through any run
+ * of steps whose OWN `waitForLoad` is false (so they fire back-to-back within one
+ * AppleScript invocation, each with a settle delay baked in before the next paste), then
+ * stops at the first step that wants the waiting popup — or the end. */
+function runFormStepsFrom(startIndex: number): void {
+  const steps = pendingFormSteps;
+  if (startIndex >= steps.length) return;
+
+  let end = startIndex;
+  do {
+    end++;
+  } while (end < steps.length && steps[end - 1].waitForLoad === false);
+
+  const { segments, separators, postDelaySec } = buildPasteGroup(steps.slice(startIndex, end));
+  runPasteGroup(segments, separators, pendingFormTargetApp, postDelaySec);
+  if (end < steps.length) {
+    pendingFormStepIndex = end;
+    openFormWaitingWindow();
+  } else {
+    clearPendingFormState();
+  }
+}
+
 function openFormWaitingWindow(): void {
   formWaitingWindow = new BrowserWindow({
     width: 340,
@@ -972,32 +1034,39 @@ function openFormWaitingWindow(): void {
       nodeIntegration: false,
     },
   });
-  // Single cleanup path regardless of how the window closes (Done, Esc, or the OS close button).
+  // "Done" sets formAdvancing first so this handler can tell a deliberate step advance
+  // apart from any other dismissal (Esc/form-cancel, or the OS close button), which
+  // should cancel the whole form rather than leaving pendingFormSteps dangling.
   formWaitingWindow.on('closed', () => {
     formWaitingWindow = null;
-    pendingFormSteps = [];
-    pendingFormTargetApp = '';
+    if (!formAdvancing) clearPendingFormState();
+    formAdvancing = false;
   });
   formWaitingWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(FORM_WAITING_HTML)}`);
   formWaitingWindow.webContents.once('did-finish-load', () => formWaitingWindow?.show());
 }
 
+function clearPendingFormState(): void {
+  pendingFormSteps = [];
+  pendingFormTargetApp = '';
+  pendingFormStepIndex = 0;
+}
+
 ipcMain.on('action:form-complete', () => {
-  const steps = pendingFormSteps;
-  const targetApp = pendingFormTargetApp;
-  formWaitingWindow?.close();
-  const segments = steps.map((s) => s.value);
-  const separators = steps.slice(0, -1).map((s) =>
-    s.then === 'enter' ? '[ENTER]' : s.then === 'tab' ? '[TAB]' : '[NONE]',
-  );
-  // The last step's own "then" (e.g. Enter to submit) still needs to fire after its paste,
-  // so treat it as a trailing separator followed by an empty final segment.
-  if (steps.length > 0 && steps[steps.length - 1].then !== 'none') {
-    const last = steps[steps.length - 1];
-    separators.push(last.then === 'enter' ? '[ENTER]' : '[TAB]');
-    segments.push('');
+  // BrowserWindow.close() is async — its 'closed' event (which clears
+  // formWaitingWindow) fires on a later tick. Advancing to the next step opens a NEW
+  // popup and reassigns formWaitingWindow immediately, so if that reassignment happens
+  // before the old window's 'closed' fires, the handler would null out the *new*
+  // window's reference instead of the old one. Running the next step only once the
+  // close has actually completed avoids that race.
+  formAdvancing = true;
+  const closingWindow = formWaitingWindow;
+  if (closingWindow) {
+    closingWindow.once('closed', () => runFormStepsFrom(pendingFormStepIndex));
+    closingWindow.close();
+  } else {
+    runFormStepsFrom(pendingFormStepIndex);
   }
-  runPasteGroup(segments, separators, targetApp);
 });
 
 ipcMain.on('action:form-cancel', () => {

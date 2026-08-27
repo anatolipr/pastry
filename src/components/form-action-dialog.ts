@@ -18,10 +18,12 @@ export class FormActionDialog extends LitElement {
     .overlay {
       position: fixed; inset: 0; background: var(--overlay-bg);
       display: flex; align-items: center; justify-content: center; z-index: 100;
+      overflow-y: auto; padding: 16px; box-sizing: border-box;
     }
     .dialog {
       background: var(--bg-dialog); border: 1px solid var(--border-dialog);
-      border-radius: 10px; padding: 20px 24px; width: 420px;
+      border-radius: 10px; padding: 20px 24px; width: 480px;
+      max-height: calc(100vh - 32px); overflow-y: auto; box-sizing: border-box;
       box-shadow: 0 8px 32px rgba(0,0,0,0.5);
     }
     h3 { margin: 0 0 14px; font-size: 14px; color: var(--accent-pinned); }
@@ -35,13 +37,20 @@ export class FormActionDialog extends LitElement {
     input:focus, select:focus { border-color: var(--accent-pinned); }
     .name-input, .url-input { width: 100%; margin-bottom: 14px; }
     .steps-label { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
-    .step-row { display: flex; gap: 6px; align-items: center; margin-bottom: 6px; }
-    .step-row input { flex: 1; }
-    .step-row select { width: 90px; }
-    .remove-step { background: transparent; border: none; color: var(--accent-danger); cursor: pointer; font-size: 13px; }
+    .step-block { margin-bottom: 12px; }
+    .step-row { display: flex; gap: 8px; align-items: center; }
+    .step-row input { flex: 1; min-width: 0; }
+    .step-row select { width: auto; min-width: 108px; flex-shrink: 0; }
+    .wait-row { display: flex; align-items: center; margin-top: 6px; }
+    .wait-label {
+      display: flex; align-items: center; gap: 5px; font-size: 11px;
+      color: var(--text-secondary); white-space: nowrap; cursor: pointer; margin: 0;
+    }
+    .wait-label input { width: auto; padding: 0; margin: 0; }
+    .remove-step { background: transparent; border: none; color: var(--accent-danger); cursor: pointer; font-size: 13px; flex-shrink: 0; }
     .add-step { background: transparent; border: 1px dashed var(--border-input-strong); color: var(--text-secondary); border-radius: 5px; padding: 5px 10px; font-size: 12px; cursor: pointer; margin-bottom: 14px; }
     .add-step:hover { background: var(--bg-hover); }
-    .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px; }
+    .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px; position: sticky; bottom: 0; background: var(--bg-dialog); padding: 10px 0 2px; }
     button.cancel, button.confirm {
       border-radius: 5px; cursor: pointer; font-size: 12px;
       padding: 6px 14px; border: 1px solid var(--border-input-strong);
@@ -131,15 +140,24 @@ export class FormActionDialog extends LitElement {
             @input=${(e: Event) => (this._url = (e.target as HTMLInputElement).value)} />
           <div class="steps-label"><label>Fields to type, in order</label></div>
           ${this._steps.map((step, i) => html`
-            <div class="step-row">
-              <input .value=${step.value} placeholder=${i === 0 ? 'demoadvertiser' : 'password'}
-                @input=${(e: Event) => this._setStep(i, { value: (e.target as HTMLInputElement).value })} />
-              <select @change=${(e: Event) => this._setStep(i, { then: (e.target as HTMLSelectElement).value as FormStep['then'] })}>
-                <option value="tab" ?selected=${step.then === 'tab'}>Then Tab</option>
-                <option value="enter" ?selected=${step.then === 'enter'}>Then Enter</option>
-                <option value="none" ?selected=${step.then === 'none'}>Then nothing</option>
-              </select>
-              <button class="remove-step" @click=${() => this._removeStep(i)}>✕</button>
+            <div class="step-block">
+              <div class="step-row">
+                <input .value=${step.value} placeholder=${i === 0 ? 'demoadvertiser' : 'password'}
+                  @input=${(e: Event) => this._setStep(i, { value: (e.target as HTMLInputElement).value })} />
+                <select @change=${(e: Event) => this._setStep(i, { then: (e.target as HTMLSelectElement).value as FormStep['then'] })}>
+                  <option value="tab" ?selected=${step.then === 'tab'}>Then Tab</option>
+                  <option value="enter" ?selected=${step.then === 'enter'}>Then Enter</option>
+                  <option value="none" ?selected=${step.then === 'none'}>Then nothing</option>
+                </select>
+                <button class="remove-step" @click=${() => this._removeStep(i)}>✕</button>
+              </div>
+              <div class="wait-row">
+                <label class="wait-label" title="Pause and show a 'waiting for page to load' popup before the next field. Turn off for an instant, in-memory step (e.g. a JS-only page change) that needs no wait.">
+                  <input type="checkbox" .checked=${step.waitForLoad !== false}
+                    @change=${(e: Event) => this._setStep(i, { waitForLoad: (e.target as HTMLInputElement).checked })} />
+                  Wait for load
+                </label>
+              </div>
             </div>
           `)}
           <button class="add-step" @click=${() => this._addStep()}>+ Add field</button>

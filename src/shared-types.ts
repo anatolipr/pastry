@@ -25,6 +25,9 @@ export type ActionKind = 'terminal' | 'url' | 'form';
 export interface FormStep {
   value: string;
   then: 'tab' | 'enter' | 'none';
+  // When false, skip the "waiting for page to load" popup after this step and
+  // continue automatically after a short delay. Defaults to true (show the popup).
+  waitForLoad?: boolean;
 }
 
 export interface ActionEntry {
