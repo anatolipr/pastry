@@ -19,3 +19,24 @@ export interface PinnedEntry {
   hidden?: boolean;    // when true, content is masked in the list view
   pastedAt?: number;   // UTC ms timestamp of most recent paste
 }
+
+export type ActionKind = 'terminal' | 'url' | 'form';
+
+export interface FormStep {
+  value: string;
+  then: 'tab' | 'enter' | 'none';
+}
+
+export interface ActionEntry {
+  id: string;
+  name: string;
+  kind: ActionKind;
+  createdAt: number;
+  // 'terminal'
+  command?: string;
+  workingDirectory?: string;
+  // 'url' and 'form'
+  url?: string;
+  // 'form' only
+  steps?: FormStep[];
+}

@@ -83,6 +83,9 @@
         overflow: hidden;
         background: var(--bg-main);
       }
+      #app-root {
+        height: 100%;
+      }
       pastry-app {
         display: flex;
         flex-direction: column;
@@ -91,7 +94,7 @@
     </style>
   </head>
   <body>
-    <pastry-app></pastry-app>
+    <div id="app-root"></div>
     <script type="module" src="/src/renderer.ts"></script>
   </body>
 </html>

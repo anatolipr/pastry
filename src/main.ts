@@ -1,9 +1,11 @@
 import { app, BrowserWindow, clipboard, dialog, globalShortcut, ipcMain, nativeImage, Tray } from 'electron';
 import path from 'node:path';
-import { exec } from 'node:child_process';
+import os from 'node:os';
+import { exec, execFile } from 'node:child_process';
 import fs from 'node:fs';
 import started from 'electron-squirrel-startup';
-import { GLOBAL_SHORTCUT, POLL_INTERVAL_MS } from './constants';
+import { GLOBAL_SHORTCUT, ACTIONS_SHORTCUT, POLL_INTERVAL_MS } from './constants';
+import type { FormStep } from './shared-types';
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (started) {
@@ -13,6 +15,8 @@ if (started) {
 const DEBUG = false;
 
 let mainWindow: BrowserWindow | null = null;
+let actionsWindow: BrowserWindow | null = null;
+let previousAppForActions = '';
 let tray: Tray | null = null;
 let previousApp = '';
 let currentShortcut = GLOBAL_SHORTCUT;
@@ -144,8 +148,43 @@ const createWindow = () => {
   });
 };
 
+const createActionsWindow = () => {
+  actionsWindow = new BrowserWindow({
+    width: 640,
+    height: 420,
+    minWidth: 480,
+    minHeight: 300,
+    frame: false,
+    alwaysOnTop: true,
+    show: false,
+    resizable: true,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  });
+
+  if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
+    actionsWindow.loadURL(`${MAIN_WINDOW_VITE_DEV_SERVER_URL}?panel=actions`);
+  } else {
+    actionsWindow.loadFile(
+      path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`),
+      { search: 'panel=actions' },
+    );
+  }
+
+  actionsWindow.on('blur', () => {
+    actionsWindow?.hide();
+  });
+};
+
 ipcMain.on('window:hide', () => {
   mainWindow?.hide();
+});
+
+ipcMain.on('actions-window:hide', () => {
+  actionsWindow?.hide();
 });
 
 // ---------------------------------------------------------------------------
@@ -222,10 +261,117 @@ ipcMain.handle('store:load', () => {
 
 ipcMain.on('store:save', (_event, data: unknown) => {
   try {
-    fs.writeFileSync(getStorePath(), JSON.stringify(data), 'utf-8');
+    // Preserve the `actions` key (owned by the actions:save handler) when the
+    // clipboard/pins store — which doesn't know about actions — writes the file.
+    let existingActions: unknown;
+    try {
+      existingActions = JSON.parse(fs.readFileSync(getStorePath(), 'utf-8')).actions;
+    } catch {
+      existingActions = undefined;
+    }
+    const merged = existingActions !== undefined ? { ...(data as object), actions: existingActions } : data;
+    fs.writeFileSync(getStorePath(), JSON.stringify(merged), 'utf-8');
   } catch (err) {
     console.error('[pastry] store:save failed:', err);
   }
+});
+
+ipcMain.handle('actions:load', () => {
+  try {
+    const raw = fs.readFileSync(getStorePath(), 'utf-8');
+    const data = JSON.parse(raw);
+    return Array.isArray(data?.actions) ? data.actions : [];
+  } catch {
+    return [];
+  }
+});
+
+ipcMain.on('actions:save', (_event, actionsData: unknown) => {
+  let existing: Record<string, unknown> = {};
+  try {
+    existing = JSON.parse(fs.readFileSync(getStorePath(), 'utf-8'));
+  } catch {
+    // No store file yet — start fresh.
+  }
+  try {
+    fs.writeFileSync(getStorePath(), JSON.stringify({ ...existing, actions: actionsData }), 'utf-8');
+  } catch (err) {
+    console.error('[pastry] actions:save failed:', err);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Action execution — Terminal
+// ---------------------------------------------------------------------------
+
+function escapeForAppleScriptString(value: string): string {
+  return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+}
+
+/** Runs a paste-group sequence: activates `targetApp` (if given), then for each
+ * segment sets the clipboard and sends Cmd+V, followed by the separator key
+ * (Tab/Enter) from `separators[i]` when present (one fewer separator than segments). */
+function runPasteGroup(segments: string[], separators: string[], targetApp: string): void {
+  const lines: string[] = [];
+  if (targetApp) {
+    lines.push(`set frontmost of (first application process whose name is "${targetApp}") to true`);
+  }
+  for (let i = 0; i < segments.length; i++) {
+    const escaped = escapeForAppleScriptString(segments[i]);
+    lines.push(`set the clipboard to "${escaped}"`);
+    lines.push(`keystroke "v" using command down`);
+    if (i < separators.length && separators[i] !== '[NONE]') {
+      lines.push(`delay 0.08`);
+      const sep = separators[i];
+      lines.push(sep === '[ENTER]' ? `key code 36` : `key code 48`); // Return : Tab
+      lines.push(`delay 0.08`);
+    }
+  }
+  const osaLines = lines.map((l) => `-e 'tell application "System Events" to ${l}'`).join(' ');
+  const script = `osascript ${osaLines}`;
+  log(`paste-groups triggered (${segments.length} segments), targetApp=${JSON.stringify(targetApp)}`);
+  exec(script, (err, stdout, stderr) => {
+    if (err) log(`paste-groups failed: ${err.message} | stderr: ${stderr}`);
+    else log(`paste-groups succeeded stdout=${stdout.trim()}`);
+  });
+}
+
+/** POSIX single-quote shell escaping — safe against $()/backtick command substitution,
+ * unlike JSON.stringify which only escapes characters meaningful to a double-quoted string. */
+function shellQuote(value: string): string {
+  return `'${value.replace(/'/g, `'\\''`)}'`;
+}
+
+/** Expands a leading `~` to the home directory ourselves — single-quoting (shellQuote)
+ * disables all shell expansion, including `~`, so it must be resolved before quoting. */
+function expandHome(value: string): string {
+  if (value === '~') return os.homedir();
+  if (value.startsWith('~/')) return path.join(os.homedir(), value.slice(2));
+  return value;
+}
+
+ipcMain.on('action:run-terminal', (_event, payload: { command: string; workingDirectory: string }) => {
+  const dir = expandHome(payload.workingDirectory.trim());
+  const cmd = payload.command.trim();
+  const shellLine = dir ? `cd ${shellQuote(dir)} && ${cmd}` : cmd;
+  const script = `tell application "Terminal"
+    activate
+    do script ${JSON.stringify(shellLine)}
+  end tell`;
+  exec(`osascript -e '${script.replace(/'/g, "'\\''")}'`, (err, stdout, stderr) => {
+    if (err) log(`action:run-terminal failed: ${err.message} | stderr: ${stderr}`);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Action execution — URL
+// ---------------------------------------------------------------------------
+
+ipcMain.on('action:run-url', (_event, payload: { url: string }) => {
+  // execFile bypasses the shell entirely, so the URL can't trigger command substitution.
+  execFile('open', [payload.url], (err, stdout, stderr) => {
+    if (err) log(`action:run-url failed: ${err.message} | stderr: ${stderr}`);
+  });
 });
 
 ipcMain.on('settings:max-image-size-mb', (_event, mb: number) => {
@@ -283,36 +429,7 @@ ipcMain.on('clipboard:paste', (_event, payload: { text?: string; imageDataUrl?: 
       }
     }
 
-    // Build AppleScript lines
-    const lines: string[] = [];
-    if (target) {
-      lines.push(`set frontmost of (first application process whose name is "${target}") to true`);
-    }
-    for (let i = 0; i < segments.length; i++) {
-      // Escape backslashes then double-quotes for AppleScript string literals
-      const escaped = segments[i].replace(/\\/g, '\\\\').replace(/"/g, '\\"');
-      lines.push(`set the clipboard to "${escaped}"`);
-      lines.push(`keystroke "v" using command down`);
-      if (i < separators.length) {
-        lines.push(`delay 0.08`);
-        const sep = separators[i];
-        if (sep === '[ENTER]') {
-          lines.push(`key code 36`); // Return key
-        } else {
-          lines.push(`key code 48`); // Tab key
-        }
-        lines.push(`delay 0.08`);
-      }
-    }
-
-    const osaLines = lines.map((l) => `-e 'tell application "System Events" to ${l}'`).join(' ');
-    const script = `osascript ${osaLines}`;
-    log(`paste-groups triggered (${segments.length} segments), previousApp=${JSON.stringify(target)}`);
-    log(`running script: ${script}`);
-    exec(script, (err, stdout, stderr) => {
-      if (err) log(`paste-groups failed: ${err.message} | stderr: ${stderr}`);
-      else log(`paste-groups succeeded stdout=${stdout.trim()}`);
-    });
+    runPasteGroup(segments, separators, target);
     return;
   }
 
@@ -443,6 +560,29 @@ function toggleWindow(): void {
         mainWindow?.show();
         mainWindow?.focus();
         mainWindow?.webContents.send('window:shown');
+        app.show();
+      },
+    );
+  }
+}
+
+function toggleActionsWindow(): void {
+  if (!actionsWindow) return;
+  if (actionsWindow.isVisible()) {
+    actionsWindow.hide();
+  } else {
+    exec(
+      `osascript -e 'tell application "System Events" to get name of first application process whose frontmost is true'`,
+      (err, stdout, stderr) => {
+        if (err) {
+          log(`capture frontmost (actions) failed: ${err.message} | stderr: ${stderr}`);
+        } else {
+          previousAppForActions = stdout.trim();
+          log(`captured previousAppForActions: ${JSON.stringify(previousAppForActions)}`);
+        }
+        actionsWindow?.show();
+        actionsWindow?.focus();
+        actionsWindow?.webContents.send('actions-window:shown');
         app.show();
       },
     );
@@ -745,6 +885,126 @@ ipcMain.handle('shortcut:register', (_event, newShortcut: string) => {
 });
 
 // ---------------------------------------------------------------------------
+// Form action — "waiting for page to load" popup
+// ---------------------------------------------------------------------------
+
+const FORM_WAITING_HTML = `<!DOCTYPE html>
+<html><head>
+<meta charset="utf-8">
+<style>
+  html, body {
+    margin: 0; padding: 0; width: 100%; height: 100vh;
+    background: #1e1e1e; display: flex; flex-direction: column;
+    overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+  #titlebar {
+    -webkit-app-region: drag;
+    height: 28px; background: #2a2a2a; display: flex; align-items: center;
+    padding: 0 14px; flex-shrink: 0; font-size: 12px; font-weight: 600;
+    color: #aaa; border-bottom: 1px solid #3a3a3a; box-sizing: border-box; gap: 6px;
+  }
+  #body {
+    flex: 1; display: flex; flex-direction: column; align-items: center;
+    justify-content: center; padding: 16px 20px; gap: 14px; text-align: center;
+  }
+  #message { font-size: 13px; color: #e8e8e8; line-height: 1.5; max-width: 300px; }
+  #done {
+    -webkit-app-region: no-drag;
+    background: #4c8ef7; border: none; border-radius: 6px; color: #fff;
+    cursor: pointer; font-size: 13px; font-weight: 600; padding: 7px 24px;
+  }
+  #done:hover { background: #6aa0ff; }
+  #hint { font-size: 11px; color: #777; }
+</style>
+</head><body>
+<div id="titlebar"><span>⏳</span><span>Pastry — Form Action</span></div>
+<div id="body">
+  <div id="message">Waiting for the page to load. Click into the field to fill, then click Done.</div>
+  <button id="done">Done</button>
+  <div id="hint">Esc to cancel</div>
+</div>
+<script>
+  document.getElementById('done').addEventListener('click', function() {
+    window.pastryAPI.completeFormAction();
+  });
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') window.pastryAPI.cancelFormAction();
+  });
+</script>
+</body></html>`;
+
+let formWaitingWindow: BrowserWindow | null = null;
+let pendingFormSteps: FormStep[] = [];
+let pendingFormTargetApp = '';
+
+ipcMain.on('action:run-form', (_event, payload: { url: string; steps: FormStep[] }) => {
+  // Discard any previous unresolved popup rather than leaving it orphaned on screen.
+  formWaitingWindow?.close();
+  pendingFormSteps = payload.steps;
+  // execFile bypasses the shell entirely, so the URL can't trigger command substitution.
+  execFile('open', [payload.url], (err, _stdout, stderr) => {
+    if (err) log(`action:run-form open failed: ${err.message} | stderr: ${stderr}`);
+  });
+
+  // Give the browser a moment to become frontmost, then capture it as the paste target.
+  setTimeout(() => {
+    exec(
+      `osascript -e 'tell application "System Events" to get name of first application process whose frontmost is true'`,
+      (err, stdout) => {
+        pendingFormTargetApp = err ? '' : stdout.trim();
+        openFormWaitingWindow();
+      },
+    );
+  }, 600);
+});
+
+function openFormWaitingWindow(): void {
+  formWaitingWindow = new BrowserWindow({
+    width: 340,
+    height: 180,
+    resizable: false,
+    show: false,
+    alwaysOnTop: true,
+    frame: false,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  });
+  // Single cleanup path regardless of how the window closes (Done, Esc, or the OS close button).
+  formWaitingWindow.on('closed', () => {
+    formWaitingWindow = null;
+    pendingFormSteps = [];
+    pendingFormTargetApp = '';
+  });
+  formWaitingWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(FORM_WAITING_HTML)}`);
+  formWaitingWindow.webContents.once('did-finish-load', () => formWaitingWindow?.show());
+}
+
+ipcMain.on('action:form-complete', () => {
+  const steps = pendingFormSteps;
+  const targetApp = pendingFormTargetApp;
+  formWaitingWindow?.close();
+  const segments = steps.map((s) => s.value);
+  const separators = steps.slice(0, -1).map((s) =>
+    s.then === 'enter' ? '[ENTER]' : s.then === 'tab' ? '[TAB]' : '[NONE]',
+  );
+  // The last step's own "then" (e.g. Enter to submit) still needs to fire after its paste,
+  // so treat it as a trailing separator followed by an empty final segment.
+  if (steps.length > 0 && steps[steps.length - 1].then !== 'none') {
+    const last = steps[steps.length - 1];
+    separators.push(last.then === 'enter' ? '[ENTER]' : '[TAB]');
+    segments.push('');
+  }
+  runPasteGroup(segments, separators, targetApp);
+});
+
+ipcMain.on('action:form-cancel', () => {
+  formWaitingWindow?.close();
+});
+
+// ---------------------------------------------------------------------------
 // App lifecycle
 // ---------------------------------------------------------------------------
 
@@ -762,8 +1022,12 @@ app.on('ready', () => {
   }
 
   createWindow();
+  createActionsWindow();
   startClipboardWatcher();
   globalShortcut.register(currentShortcut, toggleWindow);
+  if (!globalShortcut.register(ACTIONS_SHORTCUT, toggleActionsWindow)) {
+    console.error(`[pastry] failed to register actions shortcut ${ACTIONS_SHORTCUT} — likely already bound by another app`);
+  }
 
   tray = new Tray(createTrayIcon());
   tray.setToolTip('Pastry');

@@ -138,7 +138,7 @@ export function applyPlaceholders(text: string, values: Record<string, string>):
 }
 
 /** Returns true if every character of `query` appears in `text` in order. */
-function fuzzyMatch(text: string, query: string): boolean {
+export function fuzzyMatch(text: string, query: string): boolean {
   let qi = 0;
   for (let i = 0; i < text.length && qi < query.length; i++) {
     if (text[i] === query[qi]) qi++;

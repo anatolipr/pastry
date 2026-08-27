@@ -114,6 +114,44 @@ const api: PastryAPI = {
     ipcRenderer.on('reminder:snoozed', handler);
     return () => ipcRenderer.removeListener('reminder:snoozed', handler);
   },
+
+  loadActions() {
+    return ipcRenderer.invoke('actions:load');
+  },
+
+  saveActions(actionsData) {
+    ipcRenderer.send('actions:save', actionsData);
+  },
+
+  runTerminalAction(payload) {
+    ipcRenderer.send('action:run-terminal', payload);
+  },
+
+  runUrlAction(payload) {
+    ipcRenderer.send('action:run-url', payload);
+  },
+
+  runFormAction(payload) {
+    ipcRenderer.send('action:run-form', payload);
+  },
+
+  completeFormAction() {
+    ipcRenderer.send('action:form-complete');
+  },
+
+  cancelFormAction() {
+    ipcRenderer.send('action:form-cancel');
+  },
+
+  hideActionsWindow() {
+    ipcRenderer.send('actions-window:hide');
+  },
+
+  onActionsWindowShown(callback) {
+    const handler = () => callback();
+    ipcRenderer.on('actions-window:shown', handler);
+    return () => ipcRenderer.removeListener('actions-window:shown', handler);
+  },
 };
 
 contextBridge.exposeInMainWorld('pastryAPI', api);

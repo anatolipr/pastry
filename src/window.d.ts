@@ -29,6 +29,15 @@ export interface PastryAPI {
   onWindowShown: (callback: () => void) => () => void;
   notifyHistoryFull: (historySize: number) => void;
   onHistoryFullData: (callback: (payload: { historySize: number }) => void) => () => void;
+  loadActions: () => Promise<import('./shared-types').ActionEntry[]>;
+  saveActions: (actions: import('./shared-types').ActionEntry[]) => void;
+  runTerminalAction: (payload: { command: string; workingDirectory: string }) => void;
+  runUrlAction: (payload: { url: string }) => void;
+  runFormAction: (payload: { url: string; steps: import('./shared-types').FormStep[] }) => void;
+  hideActionsWindow: () => void;
+  onActionsWindowShown: (callback: () => void) => () => void;
+  completeFormAction: () => void;
+  cancelFormAction: () => void;
 }
 
 export interface PastryStore {
@@ -39,6 +48,7 @@ export interface PastryStore {
   shortcut?: string;
   sequentialPasteShortcut?: string;
   themeMode?: string;
+  actions?: import('./shared-types').ActionEntry[];
 }
 
 declare global {
