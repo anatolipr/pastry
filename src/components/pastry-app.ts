@@ -186,13 +186,13 @@ export class PastryApp extends LitElement {
   private _onWindowShown = (): void => {
     setActiveIndex(-1);
     // Double rAF ensures the window is painted and focusable before we call focus().
-    requestAnimationFrame(() => requestAnimationFrame(() => this._searchInput?.focus()));
+    requestAnimationFrame(() => requestAnimationFrame(() => { this._searchInput?.focus(); this._searchInput?.select(); }));
   };
 
   private _onWindowFocus = (): void => {
     // Reset selection and focus search every time the panel opens.
     setActiveIndex(-1);
-    requestAnimationFrame(() => this._searchInput?.focus());
+    requestAnimationFrame(() => { this._searchInput?.focus(); this._searchInput?.select(); });
   };
 
   private _onKeyDown = (e: KeyboardEvent): void => {
