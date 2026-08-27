@@ -261,15 +261,19 @@ ipcMain.handle('store:load', () => {
 
 ipcMain.on('store:save', (_event, data: unknown) => {
   try {
-    // Preserve the `actions` key (owned by the actions:save handler) when the
-    // clipboard/pins store — which doesn't know about actions — writes the file.
-    let existingActions: unknown;
+    // Preserve keys this handler doesn't know about (owned by actions:save /
+    // placeholder-history:save) when the clipboard/pins store writes the file.
+    let existing: { actions?: unknown; placeholderHistory?: unknown } = {};
     try {
-      existingActions = JSON.parse(fs.readFileSync(getStorePath(), 'utf-8')).actions;
+      existing = JSON.parse(fs.readFileSync(getStorePath(), 'utf-8'));
     } catch {
-      existingActions = undefined;
+      existing = {};
     }
-    const merged = existingActions !== undefined ? { ...(data as object), actions: existingActions } : data;
+    const merged = {
+      ...(data as object),
+      ...(existing.actions !== undefined ? { actions: existing.actions } : {}),
+      ...(existing.placeholderHistory !== undefined ? { placeholderHistory: existing.placeholderHistory } : {}),
+    };
     fs.writeFileSync(getStorePath(), JSON.stringify(merged), 'utf-8');
   } catch (err) {
     console.error('[pastry] store:save failed:', err);
@@ -297,6 +301,30 @@ ipcMain.on('actions:save', (_event, actionsData: unknown) => {
     fs.writeFileSync(getStorePath(), JSON.stringify({ ...existing, actions: actionsData }), 'utf-8');
   } catch (err) {
     console.error('[pastry] actions:save failed:', err);
+  }
+});
+
+ipcMain.handle('placeholder-history:load', () => {
+  try {
+    const raw = fs.readFileSync(getStorePath(), 'utf-8');
+    const data = JSON.parse(raw);
+    return data?.placeholderHistory && typeof data.placeholderHistory === 'object' ? data.placeholderHistory : {};
+  } catch {
+    return {};
+  }
+});
+
+ipcMain.on('placeholder-history:save', (_event, historyData: unknown) => {
+  let existing: Record<string, unknown> = {};
+  try {
+    existing = JSON.parse(fs.readFileSync(getStorePath(), 'utf-8'));
+  } catch {
+    // No store file yet — start fresh.
+  }
+  try {
+    fs.writeFileSync(getStorePath(), JSON.stringify({ ...existing, placeholderHistory: historyData }), 'utf-8');
+  } catch (err) {
+    console.error('[pastry] placeholder-history:save failed:', err);
   }
 });
 
@@ -374,6 +402,35 @@ ipcMain.on('action:run-url', (_event, payload: { url: string }) => {
   // execFile bypasses the shell entirely, so the URL can't trigger command substitution.
   execFile('open', [payload.url], (err, stdout, stderr) => {
     if (err) log(`action:run-url failed: ${err.message} | stderr: ${stderr}`);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Action execution — Text (insert via keystroke typing, or copy to clipboard)
+// ---------------------------------------------------------------------------
+
+ipcMain.on('action:run-text', (_event, payload: { text: string; copyToClipboard?: boolean }) => {
+  if (payload.copyToClipboard) {
+    // Plain clipboard write — no target app, no keystrokes, nothing to reactivate.
+    lastClipboardText = payload.text;
+    lastImageSignature = '';
+    clipboard.writeText(payload.text);
+    return;
+  }
+  const targetApp = previousAppForActions;
+  const lines: string[] = [];
+  if (targetApp) {
+    lines.push(`set frontmost of (first application process whose name is "${targetApp}") to true`);
+  }
+  const textLines = payload.text.split('\n');
+  for (let i = 0; i < textLines.length; i++) {
+    lines.push(`keystroke ${JSON.stringify(escapeForAppleScriptString(textLines[i]))}`);
+    if (i < textLines.length - 1) lines.push(`key code 36`); // Return between lines
+  }
+  const osaLines = lines.map((l) => `-e 'tell application "System Events" to ${l}'`).join(' ');
+  const script = `osascript ${osaLines}`;
+  exec(script, (err, stdout, stderr) => {
+    if (err) log(`action:run-text failed: ${err.message} | stderr: ${stderr}`);
   });
 });
 
@@ -951,6 +1008,16 @@ const SKIP_WAIT_DELAY_MS = 600;
 ipcMain.on('action:run-form', (_event, payload: { url: string; steps: FormStep[] }) => {
   // Discard any previous unresolved popup rather than leaving it orphaned on screen.
   formWaitingWindow?.close();
+
+  if (!payload.url.trim()) {
+    // No URL — work on whatever's already frontmost (the app that was active when the
+    // Actions window opened) instead of opening a browser. There's no page navigation
+    // to wait for, so run every step in one shot with no waiting popup at all.
+    const { segments, separators, postDelaySec } = buildPasteGroup(payload.steps);
+    runPasteGroup(segments, separators, previousAppForActions, postDelaySec);
+    return;
+  }
+
   pendingFormSteps = payload.steps;
   pendingFormStepIndex = 0;
   // execFile bypasses the shell entirely, so the URL can't trigger command substitution.

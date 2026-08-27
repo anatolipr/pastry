@@ -64,14 +64,16 @@ export const selectedPinExportIds = new Signal<Set<string>>(new Set(), 'selected
 /** Whether the "Pin Paste Group" dialog is open. */
 export const isPasteGroupDialogOpen = new Signal<boolean>(false, 'isPasteGroupDialogOpen');
 
-export interface PlaceholderPastePayload {
+/** A pending request to fill in ::placeholder:: values before some downstream action
+ * runs. `text` is used only to extract which placeholder names to show fields for —
+ * the caller decides what to actually do with the filled-in values via `onConfirm`. */
+export interface PlaceholderFillRequest {
   text: string;
-  imageDataUrl?: string;
-  htmlContent?: string;
+  onConfirm: (values: Record<string, string>) => void;
 }
 
-/** Set when a paste is initiated on text that contains ::placeholder:: tokens. */
-export const placeholderPasteTarget = new Signal<PlaceholderPastePayload | null>(null, 'placeholderPasteTarget');
+/** Set when something needs placeholder values filled in before it can proceed. */
+export const placeholderFillTarget = new Signal<PlaceholderFillRequest | null>(null, 'placeholderFillTarget');
 
 // ---------------------------------------------------------------------------
 // Derived / computed
@@ -108,7 +110,7 @@ export const isReminderDialogOpen = new Computed<boolean>(
 );
 
 export const isPlaceholderDialogOpen = new Computed<boolean>(
-  () => placeholderPasteTarget.get() !== null,
+  () => placeholderFillTarget.get() !== null,
   'isPlaceholderDialogOpen',
 );
 
@@ -604,12 +606,33 @@ export function closePasteGroupDialog(): void {
   isPasteGroupDialogOpen.set(false);
 }
 
-export function openPlaceholderPaste(payload: PlaceholderPastePayload): void {
-  placeholderPasteTarget.set(payload);
+export function openPlaceholderFill(text: string, onConfirm: (values: Record<string, string>) => void): void {
+  placeholderFillTarget.set({ text, onConfirm });
 }
 
-export function closePlaceholderPaste(): void {
-  placeholderPasteTarget.set(null);
+export function closePlaceholderFill(): void {
+  placeholderFillTarget.set(null);
+}
+
+const PLACEHOLDER_HISTORY_CAP = 10;
+
+/** Global, cross-feature history of values typed into each named placeholder — shared by
+ * pin-paste and every action kind, keyed by placeholder name (not by which pin/action used it). */
+export const placeholderHistory = new Signal<Record<string, string[]>>({}, 'placeholderHistory');
+
+/** Records `value` as the most-recent entry for `name`'s history (deduped, capped, persisted). */
+export function recordPlaceholderValue(name: string, value: string): void {
+  if (!value.trim()) return;
+  const current = placeholderHistory.get();
+  const existing = current[name] ?? [];
+  const next = [value, ...existing.filter((v) => v !== value)].slice(0, PLACEHOLDER_HISTORY_CAP);
+  placeholderHistory.set({ ...current, [name]: next });
+  window.pastryAPI.savePlaceholderHistory(placeholderHistory.get());
+}
+
+export async function loadPersistedPlaceholderHistory(): Promise<void> {
+  const loaded = await window.pastryAPI.loadPlaceholderHistory();
+  if (loaded) placeholderHistory.set(loaded);
 }
 
 /** Builds the ordered item list for the paste-group dialog (chronological, oldest first). */

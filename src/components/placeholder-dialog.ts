@@ -3,17 +3,29 @@ import { customElement, state } from 'lit/decorators.js';
 import { SignalWatcher } from 'avosignals';
 import {
   isPlaceholderDialogOpen,
-  placeholderPasteTarget,
-  closePlaceholderPaste,
+  placeholderFillTarget,
+  closePlaceholderFill,
   extractPlaceholders,
-  applyPlaceholders,
+  placeholderHistory,
+  recordPlaceholderValue,
 } from '../store/clipboard-store';
+
+/** Returns true if every character of `query` appears in `text` in order (same
+ * fuzzy-match semantics as the actions search — see actions-store.ts). */
+function fuzzyMatch(text: string, query: string): boolean {
+  let qi = 0;
+  for (let i = 0; i < text.length && qi < query.length; i++) {
+    if (text[i] === query[qi]) qi++;
+  }
+  return qi === query.length;
+}
 
 @customElement('placeholder-dialog')
 export class PlaceholderDialog extends LitElement {
   private watcher = new SignalWatcher(this);
 
   @state() private _values: Record<string, string> = {};
+  @state() private _openSuggestionsFor: string | null = null;
 
   private _wasOpen = false;
 
@@ -30,7 +42,7 @@ export class PlaceholderDialog extends LitElement {
     }
     h3 { margin: 0 0 4px; font-size: 14px; color: var(--accent-pinned); }
     .subtitle { font-size: 11px; color: var(--text-muted); margin: 0 0 16px; }
-    .field { margin-bottom: 14px; }
+    .field { margin-bottom: 14px; position: relative; }
     label {
       display: block; font-size: 12px; color: var(--text-secondary); margin-bottom: 5px;
       font-weight: 600;
@@ -42,6 +54,14 @@ export class PlaceholderDialog extends LitElement {
       padding: 7px 10px; outline: none; font-family: inherit;
     }
     input:focus { border-color: var(--accent-pinned); }
+    .suggestions {
+      position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+      background: var(--bg-dialog); border: 1px solid var(--border-input-strong);
+      border-radius: 6px; box-shadow: 0 6px 20px rgba(0,0,0,0.5);
+      z-index: 200; overflow: hidden; max-height: 160px; overflow-y: auto;
+    }
+    .suggestion { padding: 6px 12px; font-size: 12px; color: var(--text-secondary); cursor: pointer; }
+    .suggestion:hover { background: var(--bg-active-pinned); color: var(--text-primary); }
     .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
     button.cancel {
       border-radius: 5px; cursor: pointer; font-size: 12px;
@@ -60,8 +80,8 @@ export class PlaceholderDialog extends LitElement {
   updated() {
     const isOpen = isPlaceholderDialogOpen.get();
     if (isOpen && !this._wasOpen) {
-      // Reset values when dialog opens, then focus the first input.
       this._values = {};
+      this._openSuggestionsFor = null;
       requestAnimationFrame(() => {
         this.shadowRoot?.querySelector<HTMLInputElement>('input')?.focus();
       });
@@ -70,22 +90,19 @@ export class PlaceholderDialog extends LitElement {
   }
 
   private _handleConfirm(): void {
-    const payload = placeholderPasteTarget.get();
-    if (!payload) return;
-    const filled = applyPlaceholders(payload.text, this._values);
-    window.pastryAPI.pasteItem({
-      text: filled,
-      imageDataUrl: payload.imageDataUrl,
-      htmlContent: payload.htmlContent
-        ? applyPlaceholders(payload.htmlContent, this._values)
-        : undefined,
-    });
-    closePlaceholderPaste();
+    const request = placeholderFillTarget.get();
+    if (!request) return;
+    for (const [name, value] of Object.entries(this._values)) {
+      recordPlaceholderValue(name, value);
+    }
+    const values = this._values;
+    closePlaceholderFill();
     this._values = {};
+    request.onConfirm(values);
   }
 
   private _handleCancel(): void {
-    closePlaceholderPaste();
+    closePlaceholderFill();
     this._values = {};
   }
 
@@ -94,11 +111,18 @@ export class PlaceholderDialog extends LitElement {
     if (e.key === 'Escape') { e.stopPropagation(); this._handleCancel(); }
   }
 
+  private _suggestionsFor(name: string): string[] {
+    const q = (this._values[name] ?? '').trim().toLowerCase();
+    const history = placeholderHistory.get()[name] ?? [];
+    if (!q) return history;
+    return history.filter((v) => fuzzyMatch(v.toLowerCase(), q));
+  }
+
   render() {
     if (!isPlaceholderDialogOpen.get()) return html``;
-    const payload = placeholderPasteTarget.get();
-    if (!payload) return html``;
-    const names = extractPlaceholders(payload.text);
+    const request = placeholderFillTarget.get();
+    if (!request) return html``;
+    const names = extractPlaceholders(request.text);
 
     return html`
       <div class="overlay"
@@ -107,25 +131,41 @@ export class PlaceholderDialog extends LitElement {
         @keydown=${this._onKeyDown}>
         <div class="dialog">
           <h3>Fill in placeholders</h3>
-          <p class="subtitle">Enter a value for each placeholder, then click Paste.</p>
-          ${names.map((name, i) => html`
-            <div class="field">
-              <label for="ph-${i}">${name}</label>
-              <input
-                id="ph-${i}"
-                type="text"
-                .value=${this._values[name] ?? ''}
-                placeholder=${name}
-                @input=${(e: Event) => {
-                  this._values = { ...this._values, [name]: (e.target as HTMLInputElement).value };
-                }}
-                @keydown=${this._onKeyDown}
-              />
-            </div>
-          `)}
+          <p class="subtitle">Enter a value for each placeholder, then confirm.</p>
+          ${names.map((name, i) => {
+            const suggestions = this._openSuggestionsFor === name ? this._suggestionsFor(name) : [];
+            return html`
+              <div class="field">
+                <label for="ph-${i}">${name}</label>
+                <input
+                  id="ph-${i}"
+                  type="text"
+                  autocomplete="off"
+                  .value=${this._values[name] ?? ''}
+                  placeholder=${name}
+                  @focus=${() => { this._openSuggestionsFor = name; }}
+                  @input=${(e: Event) => {
+                    this._values = { ...this._values, [name]: (e.target as HTMLInputElement).value };
+                    this._openSuggestionsFor = name;
+                  }}
+                  @blur=${() => setTimeout(() => { this._openSuggestionsFor = null; }, 150)}
+                  @keydown=${this._onKeyDown}
+                />
+                ${suggestions.length > 0 ? html`
+                  <div class="suggestions">
+                    ${suggestions.map((s) => html`
+                      <div class="suggestion" @mousedown=${(e: Event) => {
+                        e.preventDefault();
+                        this._values = { ...this._values, [name]: s };
+                        this._openSuggestionsFor = null;
+                      }}>${s}</div>`)}
+                  </div>` : ''}
+              </div>
+            `;
+          })}
           <div class="actions">
             <button class="cancel" @click=${this._handleCancel}>Cancel</button>
-            <button class="confirm" @click=${this._handleConfirm}>Paste</button>
+            <button class="confirm" @click=${this._handleConfirm}>Confirm</button>
           </div>
         </div>
       </div>

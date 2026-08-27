@@ -1,4 +1,4 @@
-import { addToHistory, loadPersistedStore, themeMode } from './store/clipboard-store';
+import { addToHistory, loadPersistedStore, loadPersistedPlaceholderHistory, themeMode } from './store/clipboard-store';
 import { loadPersistedActions } from './store/actions-store';
 
 const isActionsPanel = new URLSearchParams(window.location.search).get('panel') === 'actions';
@@ -45,10 +45,12 @@ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', app
 if (isActionsPanel) {
   // Only the actions panel needs the actions store hydrated — avoids the clipboard
   // window doing an extra, unused actions:load IPC round trip on every show.
+  loadPersistedPlaceholderHistory();
   loadPersistedActions();
   applyTheme();
 } else {
   // Hydrate signals from persisted state before the first render, then apply theme.
+  loadPersistedPlaceholderHistory();
   loadPersistedStore().then(() => applyTheme());
 
   // Start listening for clipboard changes pushed from the main process.

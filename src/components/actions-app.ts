@@ -6,13 +6,16 @@ import {
   isNewActionPickerOpen, editActionTarget, newActionKind,
   deleteActionTarget, isDeleteActionDialogOpen,
 } from '../store/actions-store';
+import { hasPlaceholders, applyPlaceholders, openPlaceholderFill } from '../store/clipboard-store';
 import type { ActionEntry } from '../shared-types';
 import './action-item';
 import './new-action-dialog';
 import './terminal-action-dialog';
 import './url-action-dialog';
 import './form-action-dialog';
+import './text-action-dialog';
 import './delete-action-dialog';
+import './placeholder-dialog';
 
 @customElement('actions-app')
 export class ActionsApp extends LitElement {
@@ -74,16 +77,66 @@ export class ActionsApp extends LitElement {
     activeActionIndex.set(filteredActions.get().length > 0 ? 0 : -1);
   }
 
+  /** Concatenates every placeholder-bearing field of an action into one string, purely
+   * so extractPlaceholders() can find all the distinct ::name:: tokens across the
+   * whole action in one pass. Never sent anywhere — only feeds name extraction. */
+  private _placeholderScanText(entry: ActionEntry): string {
+    switch (entry.kind) {
+      case 'terminal':
+        return `${entry.command ?? ''}\n${entry.workingDirectory ?? ''}`;
+      case 'url':
+        return entry.url ?? '';
+      case 'form':
+        return `${entry.url ?? ''}\n${(entry.steps ?? []).map((s) => s.value).join('\n')}`;
+      case 'text':
+        return entry.text ?? '';
+    }
+  }
+
   private _runAction(entry: ActionEntry): void {
+    if (hasPlaceholders(this._placeholderScanText(entry))) {
+      openPlaceholderFill(this._placeholderScanText(entry), (values) => {
+        this._dispatchRun(this._applyPlaceholdersToEntry(entry, values));
+      });
+      return;
+    }
+    this._dispatchRun(entry);
+  }
+
+  private _applyPlaceholdersToEntry(entry: ActionEntry, values: Record<string, string>): ActionEntry {
+    switch (entry.kind) {
+      case 'terminal':
+        return {
+          ...entry,
+          command: applyPlaceholders(entry.command ?? '', values),
+          workingDirectory: applyPlaceholders(entry.workingDirectory ?? '', values),
+        };
+      case 'url':
+        return { ...entry, url: applyPlaceholders(entry.url ?? '', values) };
+      case 'form':
+        return {
+          ...entry,
+          url: applyPlaceholders(entry.url ?? '', values),
+          steps: (entry.steps ?? []).map((s) => ({ ...s, value: applyPlaceholders(s.value, values) })),
+        };
+      case 'text':
+        return { ...entry, text: applyPlaceholders(entry.text ?? '', values) };
+    }
+  }
+
+  private _dispatchRun(entry: ActionEntry): void {
     if (entry.kind === 'terminal') {
       if (!entry.command?.trim()) return;
       window.pastryAPI.runTerminalAction({ command: entry.command, workingDirectory: entry.workingDirectory ?? '' });
     } else if (entry.kind === 'url') {
       if (!entry.url?.trim()) return;
       window.pastryAPI.runUrlAction({ url: entry.url });
+    } else if (entry.kind === 'form') {
+      if (!(entry.steps ?? []).length) return;
+      window.pastryAPI.runFormAction({ url: entry.url ?? '', steps: entry.steps ?? [] });
     } else {
-      if (!entry.url?.trim()) return;
-      window.pastryAPI.runFormAction({ url: entry.url, steps: entry.steps ?? [] });
+      if (!entry.text?.trim()) return;
+      window.pastryAPI.runTextAction({ text: entry.text, copyToClipboard: entry.copyToClipboard });
     }
     window.pastryAPI.hideActionsWindow();
   }
@@ -163,7 +216,9 @@ export class ActionsApp extends LitElement {
       <terminal-action-dialog></terminal-action-dialog>
       <url-action-dialog></url-action-dialog>
       <form-action-dialog></form-action-dialog>
+      <text-action-dialog></text-action-dialog>
       ${isDeleteActionDialogOpen.get() ? html`<delete-action-dialog></delete-action-dialog>` : ''}
+      <placeholder-dialog></placeholder-dialog>
     `;
   }
 }

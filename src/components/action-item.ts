@@ -6,6 +6,7 @@ const KIND_ICON: Record<ActionEntry['kind'], string> = {
   terminal: '⚡️',
   url: '🔗',
   form: '🔐',
+  text: '📝',
 };
 
 @customElement('action-item')

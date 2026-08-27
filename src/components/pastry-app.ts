@@ -6,7 +6,7 @@ import {
   isPasteGroupDialogOpen, isPlaceholderDialogOpen,
   searchQuery, activeItem, combinedItems, moveActiveIndexInPanel, moveActivePanel, setActiveIndex,
   setNewPinOpen, setEditTarget, pinnedItems,
-  hasPlaceholders, openPlaceholderPaste,
+  hasPlaceholders, openPlaceholderFill, applyPlaceholders,
   sequentialPasteShortcut, pasteNextSelected, recordPastedAt, isExportMode,
 } from '../store/clipboard-store';
 import './history-list';
@@ -264,7 +264,13 @@ if (seqShortcut && isExportMode.get() && this._matchesShortcut(e, seqShortcut)) 
       if (item) {
         e.preventDefault();
         if (!item.entry.imageDataUrl && hasPlaceholders(item.entry.text)) {
-          openPlaceholderPaste({ text: item.entry.text, htmlContent: item.entry.htmlContent });
+          const entry = item.entry;
+          openPlaceholderFill(entry.text, (values) => {
+            window.pastryAPI.pasteItem({
+              text: applyPlaceholders(entry.text, values),
+              htmlContent: entry.htmlContent ? applyPlaceholders(entry.htmlContent, values) : undefined,
+            });
+          });
         } else {
           recordPastedAt(item.entry.id, item.kind);
           window.pastryAPI.pasteItem({ text: item.entry.text, imageDataUrl: item.entry.imageDataUrl, htmlContent: item.entry.htmlContent });

@@ -123,6 +123,14 @@ const api: PastryAPI = {
     ipcRenderer.send('actions:save', actionsData);
   },
 
+  loadPlaceholderHistory() {
+    return ipcRenderer.invoke('placeholder-history:load');
+  },
+
+  savePlaceholderHistory(history) {
+    ipcRenderer.send('placeholder-history:save', history);
+  },
+
   runTerminalAction(payload) {
     ipcRenderer.send('action:run-terminal', payload);
   },
@@ -133,6 +141,10 @@ const api: PastryAPI = {
 
   runFormAction(payload) {
     ipcRenderer.send('action:run-form', payload);
+  },
+
+  runTextAction(payload) {
+    ipcRenderer.send('action:run-text', payload);
   },
 
   completeFormAction() {

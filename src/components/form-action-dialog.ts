@@ -107,7 +107,7 @@ export class FormActionDialog extends LitElement {
 
   private _confirm(): void {
     const steps = this._validSteps();
-    if (!this._name.trim() || !this._url.trim() || steps.length === 0) return;
+    if (!this._name.trim() || steps.length === 0) return;
     const editing = editActionTarget.get();
     if (editing) {
       updateAction(editing.id, { name: this._name, url: this._url, steps });
@@ -119,7 +119,7 @@ export class FormActionDialog extends LitElement {
 
   render() {
     if (!this._isOpen()) return html``;
-    const canConfirm = this._name.trim() && this._url.trim() && this._validSteps().length > 0;
+    const canConfirm = this._name.trim() && this._validSteps().length > 0;
     return html`
       <div
         class="overlay"
@@ -135,7 +135,7 @@ export class FormActionDialog extends LitElement {
           <label for="form-name-input">Name</label>
           <input id="form-name-input" class="name-input" .value=${this._name} placeholder="Login — Demo Advertiser"
             @input=${(e: Event) => (this._name = (e.target as HTMLInputElement).value)} />
-          <label for="form-url-input">URL</label>
+          <label for="form-url-input">URL (optional — leave blank to fill in the current window instead)</label>
           <input id="form-url-input" class="url-input" .value=${this._url} placeholder="http://localhost:12680"
             @input=${(e: Event) => (this._url = (e.target as HTMLInputElement).value)} />
           <div class="steps-label"><label>Fields to type, in order</label></div>

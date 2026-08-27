@@ -20,7 +20,7 @@ export interface PinnedEntry {
   pastedAt?: number;   // UTC ms timestamp of most recent paste
 }
 
-export type ActionKind = 'terminal' | 'url' | 'form';
+export type ActionKind = 'terminal' | 'url' | 'form' | 'text';
 
 export interface FormStep {
   value: string;
@@ -42,4 +42,9 @@ export interface ActionEntry {
   url?: string;
   // 'form' only
   steps?: FormStep[];
+  // 'text' only — the reusable template body, may contain ::placeholder:: tokens
+  text?: string;
+  // 'text' only — when true, copy the resolved text to the clipboard instead of
+  // typing it into the frontmost app. Defaults to false (insert/type).
+  copyToClipboard?: boolean;
 }

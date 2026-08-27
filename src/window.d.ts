@@ -38,6 +38,9 @@ export interface PastryAPI {
   onActionsWindowShown: (callback: () => void) => () => void;
   completeFormAction: () => void;
   cancelFormAction: () => void;
+  runTextAction: (payload: { text: string; copyToClipboard?: boolean }) => void;
+  loadPlaceholderHistory: () => Promise<Record<string, string[]>>;
+  savePlaceholderHistory: (history: Record<string, string[]>) => void;
 }
 
 export interface PastryStore {
@@ -49,6 +52,7 @@ export interface PastryStore {
   sequentialPasteShortcut?: string;
   themeMode?: string;
   actions?: import('./shared-types').ActionEntry[];
+  placeholderHistory?: Record<string, string[]>;
 }
 
 declare global {
