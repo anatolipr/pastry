@@ -36,7 +36,7 @@ export class NewActionDialog extends LitElement {
     button:hover { background: var(--bg-hover); }
   `;
 
-  private _pick(kind: 'terminal' | 'url' | 'form' | 'text'): void {
+  private _pick(kind: 'terminal' | 'url' | 'form' | 'text' | 'app'): void {
     isNewActionPickerOpen.set(false);
     newActionKind.set(kind);
   }
@@ -66,6 +66,9 @@ export class NewActionDialog extends LitElement {
           </div>
           <div class="kind-row" tabindex="0" @click=${() => this._pick('text')} @keydown=${(e: KeyboardEvent) => { if (e.key === 'Enter') this._pick('text'); }}>
             <span class="kind-icon">📝</span><span class="kind-label">Text — type reusable text</span>
+          </div>
+          <div class="kind-row" tabindex="0" @click=${() => this._pick('app')} @keydown=${(e: KeyboardEvent) => { if (e.key === 'Enter') this._pick('app'); }}>
+            <span class="kind-icon">🚀</span><span class="kind-label">App — launch an application</span>
           </div>
           <div class="actions">
             <button @click=${() => isNewActionPickerOpen.set(false)}>Cancel</button>

@@ -1,5 +1,6 @@
 import { addToHistory, loadPersistedStore, loadPersistedPlaceholderHistory, themeMode } from './store/clipboard-store';
 import { loadPersistedActions } from './store/actions-store';
+import { loadPersistedUrlScratchpad } from './store/url-scratchpad-store';
 
 const isActionsPanel = new URLSearchParams(window.location.search).get('panel') === 'actions';
 
@@ -47,6 +48,7 @@ if (isActionsPanel) {
   // window doing an extra, unused actions:load IPC round trip on every show.
   loadPersistedPlaceholderHistory();
   loadPersistedActions();
+  loadPersistedUrlScratchpad();
   applyTheme();
 } else {
   // Hydrate signals from persisted state before the first render, then apply theme.

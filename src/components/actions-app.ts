@@ -1,5 +1,5 @@
 import { LitElement, html, css } from 'lit';
-import { customElement, query } from 'lit/decorators.js';
+import { customElement, query, state } from 'lit/decorators.js';
 import { SignalWatcher } from 'avosignals';
 import {
   filteredActions, actionsSearchQuery, activeActionIndex, activeAction,
@@ -7,6 +7,7 @@ import {
   deleteActionTarget, isDeleteActionDialogOpen, recordActionUsed, duplicateAction,
 } from '../store/actions-store';
 import { hasPlaceholders, applyPlaceholders, openPlaceholderFill } from '../store/clipboard-store';
+import { isUrlScratchpadOpen, pasteUrlScratch } from '../store/url-scratchpad-store';
 import type { ActionEntry } from '../shared-types';
 import './action-item';
 import './new-action-dialog';
@@ -14,6 +15,8 @@ import './terminal-action-dialog';
 import './url-action-dialog';
 import './form-action-dialog';
 import './text-action-dialog';
+import './app-action-dialog';
+import './url-list-dialog';
 import './delete-action-dialog';
 import './placeholder-dialog';
 
@@ -22,6 +25,8 @@ export class ActionsApp extends LitElement {
   private watcher = new SignalWatcher(this);
 
   @query('#actions-search-input') private _searchInput!: HTMLInputElement;
+  @state() private _pasteFeedback: string | null = null;
+  private _pasteFeedbackTimer?: ReturnType<typeof setTimeout>;
 
   static styles = css`
     :host {
@@ -44,6 +49,18 @@ export class ActionsApp extends LitElement {
       font-size: 13px; padding: 6px 10px; outline: none;
     }
     .search-bar input:focus { border-color: var(--border-focus); background: var(--bg-input-focus); }
+    .quick-toolbar { display: flex; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--border-subtle); flex-shrink: 0; }
+    .quick-btn {
+      flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px;
+      padding: 7px 10px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600;
+      color: var(--text-primary); border: 1px solid var(--border-input-strong); background: var(--bg-input);
+      font-family: inherit;
+    }
+    .quick-btn:hover { background: var(--bg-hover); border-color: var(--accent-pinned); }
+    .quick-btn .kbd {
+      font-size: 10px; font-weight: 400; color: var(--text-muted);
+      border: 1px solid var(--border-input-strong); border-radius: 4px; padding: 1px 5px;
+    }
     .list { flex: 1; overflow-y: auto; padding: 8px; }
     .new-row {
       display: flex; align-items: center; gap: 8px; padding: 6px 12px;
@@ -90,7 +107,16 @@ export class ActionsApp extends LitElement {
         return `${entry.url ?? ''}\n${(entry.steps ?? []).map((s) => s.value).join('\n')}`;
       case 'text':
         return entry.text ?? '';
+      case 'app':
+        return '';
     }
+  }
+
+  private async _onPasteUrlScratch(): Promise<void> {
+    const added = await pasteUrlScratch();
+    this._pasteFeedback = added ? '✓ Added' : 'Clipboard empty';
+    clearTimeout(this._pasteFeedbackTimer);
+    this._pasteFeedbackTimer = setTimeout(() => { this._pasteFeedback = null; }, 1400);
   }
 
   private _runAction(entry: ActionEntry): void {
@@ -121,6 +147,8 @@ export class ActionsApp extends LitElement {
         };
       case 'text':
         return { ...entry, text: applyPlaceholders(entry.text ?? '', values) };
+      case 'app':
+        return entry;
     }
   }
 
@@ -135,6 +163,9 @@ export class ActionsApp extends LitElement {
     } else if (entry.kind === 'form') {
       if (!(entry.steps ?? []).length) return;
       window.pastryAPI.runFormAction({ url: entry.url ?? '', steps: entry.steps ?? [] });
+    } else if (entry.kind === 'app') {
+      if (!entry.appPath?.trim()) return;
+      window.pastryAPI.runAppAction({ appPath: entry.appPath });
     } else {
       if (!entry.text?.trim()) return;
       window.pastryAPI.runTextAction({ text: entry.text, copyToClipboard: entry.copyToClipboard });
@@ -143,7 +174,7 @@ export class ActionsApp extends LitElement {
   }
 
   private _onKeyDown = (e: KeyboardEvent): void => {
-    if (isNewActionPickerOpen.get() || newActionKind.get() || editActionTarget.get() || isDeleteActionDialogOpen.get()) return;
+    if (isNewActionPickerOpen.get() || newActionKind.get() || editActionTarget.get() || isDeleteActionDialogOpen.get() || isUrlScratchpadOpen.get()) return;
 
     if (e.key === 'ArrowDown') {
       e.preventDefault();
@@ -172,6 +203,17 @@ export class ActionsApp extends LitElement {
       if (searchFocused) return;
       const entry = activeAction.get();
       if (entry) { e.preventDefault(); duplicateAction(entry.id); }
+    } else if ((e.metaKey || e.ctrlKey) && e.key === 'a') {
+      // Don't hijack Cmd/Ctrl+A's native "select all" while typing a search.
+      const searchFocused = this.shadowRoot?.activeElement === this._searchInput;
+      if (searchFocused) return;
+      e.preventDefault();
+      this._onPasteUrlScratch();
+    } else if ((e.metaKey || e.ctrlKey) && e.key === 'u') {
+      const searchFocused = this.shadowRoot?.activeElement === this._searchInput;
+      if (searchFocused) return;
+      e.preventDefault();
+      isUrlScratchpadOpen.set(true);
     } else if (e.key === 'Escape') {
       window.pastryAPI.hideActionsWindow();
     }
@@ -208,7 +250,15 @@ export class ActionsApp extends LitElement {
           @input=${this._onSearch}
         />
       </div>
-      <div class="hint">↑↓ navigate · Enter run · ⌘D duplicate · Esc close</div>
+      <div class="quick-toolbar">
+        <button class="quick-btn" title="Paste clipboard as a scratch URL" @click=${() => this._onPasteUrlScratch()}>
+          <span>${this._pasteFeedback ?? '📋 Add URL'}</span><span class="kbd">⌘A</span>
+        </button>
+        <button class="quick-btn" title="Open the URL scratchpad" @click=${() => isUrlScratchpadOpen.set(true)}>
+          <span>🗒️ Open URLs</span><span class="kbd">⌘U</span>
+        </button>
+      </div>
+      <div class="hint">↑↓ navigate · Enter run · ⌘A add URL · ⌘U open URLs · ⌘D duplicate · Esc close</div>
       <div class="list">
         <div class="new-row" @click=${() => isNewActionPickerOpen.set(true)}>+ New Action</div>
         ${list.map((entry, i) => html`
@@ -228,6 +278,8 @@ export class ActionsApp extends LitElement {
       <url-action-dialog></url-action-dialog>
       <form-action-dialog></form-action-dialog>
       <text-action-dialog></text-action-dialog>
+      <app-action-dialog></app-action-dialog>
+      <url-list-dialog></url-list-dialog>
       ${isDeleteActionDialogOpen.get() ? html`<delete-action-dialog></delete-action-dialog>` : ''}
       <placeholder-dialog></placeholder-dialog>
     `;

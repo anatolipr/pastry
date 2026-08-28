@@ -208,6 +208,10 @@ function imageSignature(native: Electron.NativeImage): string {
 }
 let openPreviewCount = 0;
 
+ipcMain.handle('clipboard:read-text', () => {
+  return clipboard.readText();
+});
+
 ipcMain.on('clipboard:write', (_event, text: string) => {
   lastClipboardText = text;
   lastImageSignature = '';
@@ -264,8 +268,9 @@ ipcMain.handle('store:load', () => {
 ipcMain.on('store:save', (_event, data: unknown) => {
   try {
     // Preserve keys this handler doesn't know about (owned by actions:save /
-    // placeholder-history:save) when the clipboard/pins store writes the file.
-    let existing: { actions?: unknown; placeholderHistory?: unknown } = {};
+    // placeholder-history:save / urlScratchpad:save) when the clipboard/pins store
+    // writes the file.
+    let existing: { actions?: unknown; placeholderHistory?: unknown; urlScratchpad?: unknown } = {};
     try {
       existing = JSON.parse(fs.readFileSync(getStorePath(), 'utf-8'));
     } catch {
@@ -275,6 +280,7 @@ ipcMain.on('store:save', (_event, data: unknown) => {
       ...(data as object),
       ...(existing.actions !== undefined ? { actions: existing.actions } : {}),
       ...(existing.placeholderHistory !== undefined ? { placeholderHistory: existing.placeholderHistory } : {}),
+      ...(existing.urlScratchpad !== undefined ? { urlScratchpad: existing.urlScratchpad } : {}),
     };
     fs.writeFileSync(getStorePath(), JSON.stringify(merged), 'utf-8');
   } catch (err) {
@@ -327,6 +333,30 @@ ipcMain.on('placeholder-history:save', (_event, historyData: unknown) => {
     fs.writeFileSync(getStorePath(), JSON.stringify({ ...existing, placeholderHistory: historyData }), 'utf-8');
   } catch (err) {
     console.error('[pastry] placeholder-history:save failed:', err);
+  }
+});
+
+ipcMain.handle('url-scratchpad:load', () => {
+  try {
+    const raw = fs.readFileSync(getStorePath(), 'utf-8');
+    const data = JSON.parse(raw);
+    return Array.isArray(data?.urlScratchpad) ? data.urlScratchpad : [];
+  } catch {
+    return [];
+  }
+});
+
+ipcMain.on('url-scratchpad:save', (_event, items: unknown) => {
+  let existing: Record<string, unknown> = {};
+  try {
+    existing = JSON.parse(fs.readFileSync(getStorePath(), 'utf-8'));
+  } catch {
+    // No store file yet — start fresh.
+  }
+  try {
+    fs.writeFileSync(getStorePath(), JSON.stringify({ ...existing, urlScratchpad: items }), 'utf-8');
+  } catch (err) {
+    console.error('[pastry] url-scratchpad:save failed:', err);
   }
 });
 
@@ -405,6 +435,27 @@ ipcMain.on('action:run-url', (_event, payload: { url: string }) => {
   execFile('open', [payload.url], (err, stdout, stderr) => {
     if (err) log(`action:run-url failed: ${err.message} | stderr: ${stderr}`);
   });
+});
+
+// ---------------------------------------------------------------------------
+// Action execution — App (launch an installed application)
+// ---------------------------------------------------------------------------
+
+ipcMain.on('action:run-app', (_event, payload: { appPath: string }) => {
+  execFile('open', ['-a', payload.appPath], (err, stdout, stderr) => {
+    if (err) log(`action:run-app failed: ${err.message} | stderr: ${stderr}`);
+  });
+});
+
+ipcMain.handle('action:pick-app', async () => {
+  const result = await dialog.showOpenDialog(actionsWindow!, {
+    title: 'Choose Application',
+    defaultPath: '/Applications',
+    filters: [{ name: 'Applications', extensions: ['app'] }],
+    properties: ['openFile'],
+  });
+  if (result.canceled || !result.filePaths[0]) return null;
+  return result.filePaths[0];
 });
 
 // ---------------------------------------------------------------------------

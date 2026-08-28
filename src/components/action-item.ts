@@ -7,6 +7,7 @@ const KIND_ICON: Record<ActionEntry['kind'], string> = {
   url: '🔗',
   form: '🔐',
   text: '📝',
+  app: '🚀',
 };
 
 @customElement('action-item')

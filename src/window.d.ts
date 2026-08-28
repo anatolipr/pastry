@@ -6,6 +6,7 @@ export interface ClipboardPayload {
 
 export interface PastryAPI {
   setMaxImageSizeMb: (mb: number) => void;
+  readClipboardText: () => Promise<string>;
   writeClipboard: (text: string) => void;
   writeRichClipboard: (payload: { text: string; htmlContent: string }) => void;
   writeImageClipboard: (dataUrl: string) => void;
@@ -35,6 +36,8 @@ export interface PastryAPI {
   saveActions: (actions: import('./shared-types').ActionEntry[]) => void;
   runTerminalAction: (payload: { command: string; workingDirectory: string }) => void;
   runUrlAction: (payload: { url: string }) => void;
+  runAppAction: (payload: { appPath: string }) => void;
+  pickApp: () => Promise<string | null>;
   runFormAction: (payload: { url: string; steps: import('./shared-types').FormStep[] }) => void;
   hideActionsWindow: () => void;
   onActionsWindowShown: (callback: () => void) => () => void;
@@ -43,6 +46,8 @@ export interface PastryAPI {
   runTextAction: (payload: { text: string; copyToClipboard?: boolean }) => void;
   loadPlaceholderHistory: () => Promise<Record<string, string[]>>;
   savePlaceholderHistory: (history: Record<string, string[]>) => void;
+  loadUrlScratchpad: () => Promise<import('./shared-types').UrlListItem[]>;
+  saveUrlScratchpad: (items: import('./shared-types').UrlListItem[]) => void;
 }
 
 export interface PastryStore {
@@ -57,6 +62,7 @@ export interface PastryStore {
   themeMode?: string;
   actions?: import('./shared-types').ActionEntry[];
   placeholderHistory?: Record<string, string[]>;
+  urlScratchpad?: import('./shared-types').UrlListItem[];
 }
 
 declare global {

@@ -6,6 +6,10 @@ const api: PastryAPI = {
     ipcRenderer.send('settings:max-image-size-mb', mb);
   },
 
+  readClipboardText(): Promise<string> {
+    return ipcRenderer.invoke('clipboard:read-text');
+  },
+
   writeClipboard(text: string): void {
     ipcRenderer.send('clipboard:write', text);
   },
@@ -139,12 +143,28 @@ const api: PastryAPI = {
     ipcRenderer.send('placeholder-history:save', history);
   },
 
+  loadUrlScratchpad() {
+    return ipcRenderer.invoke('url-scratchpad:load');
+  },
+
+  saveUrlScratchpad(items) {
+    ipcRenderer.send('url-scratchpad:save', items);
+  },
+
   runTerminalAction(payload) {
     ipcRenderer.send('action:run-terminal', payload);
   },
 
   runUrlAction(payload) {
     ipcRenderer.send('action:run-url', payload);
+  },
+
+  runAppAction(payload) {
+    ipcRenderer.send('action:run-app', payload);
+  },
+
+  pickApp() {
+    return ipcRenderer.invoke('action:pick-app');
   },
 
   runFormAction(payload) {

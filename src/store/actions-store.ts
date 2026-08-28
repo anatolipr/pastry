@@ -7,7 +7,7 @@ export const actionsSearchQuery = new Signal<string>('', 'actionsSearchQuery');
 export const activeActionIndex = new Signal<number>(-1, 'activeActionIndex');
 
 /** Kind chosen in the "+ New Action" picker; null means the picker itself is closed. */
-export const newActionKind = new Signal<'terminal' | 'url' | 'form' | 'text' | null>(null, 'newActionKind');
+export const newActionKind = new Signal<'terminal' | 'url' | 'form' | 'text' | 'app' | null>(null, 'newActionKind');
 
 export const isNewActionPickerOpen = new Signal<boolean>(false, 'isNewActionPickerOpen');
 

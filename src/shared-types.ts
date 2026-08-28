@@ -20,7 +20,14 @@ export interface PinnedEntry {
   pastedAt?: number;   // UTC ms timestamp of most recent paste
 }
 
-export type ActionKind = 'terminal' | 'url' | 'form' | 'text';
+export type ActionKind = 'terminal' | 'url' | 'form' | 'text' | 'app';
+
+export interface UrlListItem {
+  id: string;
+  url: string;
+  label?: string;
+  addedAt: number;
+}
 
 export interface FormStep {
   value: string;
@@ -55,4 +62,6 @@ export interface ActionEntry {
   // Shown ahead of (and separately from) the global cross-action typed-value
   // history in the placeholder-fill dialog.
   paramOptions?: Record<string, string[]>;
+  // 'app' only — absolute path to the .app bundle to launch
+  appPath?: string;
 }
