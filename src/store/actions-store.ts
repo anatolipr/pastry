@@ -22,11 +22,35 @@ export const isDeleteActionDialogOpen = new Computed<boolean>(
   'isDeleteActionDialogOpen',
 );
 
+export const allActionTags = new Computed<string[]>(() => {
+  const tags = new Set<string>();
+  for (const a of actions.get()) {
+    for (const t of (a.tags ?? [])) tags.add(t);
+  }
+  return [...tags].sort();
+}, 'allActionTags');
+
+/** Higher-usage, more-recently-used actions sort first; ties broken by creation order
+ * (newest first), matching the pre-ranking behavior when nothing has been run yet. */
+function byUsage(a: ActionEntry, b: ActionEntry): number {
+  const countDiff = (b.useCount ?? 0) - (a.useCount ?? 0);
+  if (countDiff !== 0) return countDiff;
+  const lastUsedDiff = (b.lastUsedAt ?? 0) - (a.lastUsedAt ?? 0);
+  if (lastUsedDiff !== 0) return lastUsedDiff;
+  return b.createdAt - a.createdAt;
+}
+
 export const filteredActions = new Computed<ActionEntry[]>(() => {
   const q = actionsSearchQuery.get().toLowerCase().trim();
   const all = actions.get();
-  if (!q) return all;
-  return all.filter((a) => fuzzyMatch(a.name.toLowerCase(), q));
+  if (!q) return [...all].sort(byUsage);
+  const tokens = q.split(/\s+/).filter(Boolean);
+  return all
+    .filter((a) => {
+      const haystack = [a.name, ...(a.tags ?? [])].join(' ').toLowerCase();
+      return tokens.every((t) => fuzzyMatch(haystack, t));
+    })
+    .sort(byUsage);
 }, 'filteredActions');
 
 export const activeAction = new Computed<ActionEntry | null>(() => {
@@ -70,5 +94,23 @@ export function updateAction(id: string, updates: Partial<ActionEntry>): void {
 
 export function deleteAction(id: string): void {
   actions.set(actions.get().filter((a) => a.id !== id));
+  persist();
+}
+
+export function recordActionUsed(id: string): void {
+  actions.set(actions.get().map((a) =>
+    a.id === id ? { ...a, useCount: (a.useCount ?? 0) + 1, lastUsedAt: Date.now() } : a,
+  ));
+  persist();
+}
+
+export function duplicateAction(id: string): void {
+  const source = actions.get().find((a) => a.id === id);
+  if (!source) return;
+  const { id: _id, createdAt: _createdAt, useCount: _useCount, lastUsedAt: _lastUsedAt, ...rest } = source;
+  const full: ActionEntry = { ...rest, name: `${source.name} copy`, id: newId(), createdAt: Date.now() };
+  actions.set([full, ...actions.get()]);
+  actionsSearchQuery.set('');
+  activeActionIndex.set(0);
   persist();
 }

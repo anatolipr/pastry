@@ -4,7 +4,7 @@ import { SignalWatcher } from 'avosignals';
 import {
   filteredActions, actionsSearchQuery, activeActionIndex, activeAction,
   isNewActionPickerOpen, editActionTarget, newActionKind,
-  deleteActionTarget, isDeleteActionDialogOpen,
+  deleteActionTarget, isDeleteActionDialogOpen, recordActionUsed, duplicateAction,
 } from '../store/actions-store';
 import { hasPlaceholders, applyPlaceholders, openPlaceholderFill } from '../store/clipboard-store';
 import type { ActionEntry } from '../shared-types';
@@ -97,7 +97,7 @@ export class ActionsApp extends LitElement {
     if (hasPlaceholders(this._placeholderScanText(entry))) {
       openPlaceholderFill(this._placeholderScanText(entry), (values) => {
         this._dispatchRun(this._applyPlaceholdersToEntry(entry, values));
-      });
+      }, entry.paramOptions);
       return;
     }
     this._dispatchRun(entry);
@@ -125,6 +125,7 @@ export class ActionsApp extends LitElement {
   }
 
   private _dispatchRun(entry: ActionEntry): void {
+    recordActionUsed(entry.id);
     if (entry.kind === 'terminal') {
       if (!entry.command?.trim()) return;
       window.pastryAPI.runTerminalAction({ command: entry.command, workingDirectory: entry.workingDirectory ?? '' });
@@ -163,6 +164,14 @@ export class ActionsApp extends LitElement {
       if (searchFocused) return;
       const entry = activeAction.get();
       if (entry) { e.preventDefault(); deleteActionTarget.set(entry); }
+    } else if ((e.metaKey || e.ctrlKey) && e.key === 'd') {
+      // Don't hijack Cmd/Ctrl+D while typing a search (browsers/Chromium treat it as
+      // bookmark-this-page; here there's no such conflict, but keep it consistent
+      // with the Backspace guard above and avoid interfering with text selection).
+      const searchFocused = this.shadowRoot?.activeElement === this._searchInput;
+      if (searchFocused) return;
+      const entry = activeAction.get();
+      if (entry) { e.preventDefault(); duplicateAction(entry.id); }
     } else if (e.key === 'Escape') {
       window.pastryAPI.hideActionsWindow();
     }
@@ -199,7 +208,7 @@ export class ActionsApp extends LitElement {
           @input=${this._onSearch}
         />
       </div>
-      <div class="hint">↑↓ navigate · Enter run · Esc close</div>
+      <div class="hint">↑↓ navigate · Enter run · ⌘D duplicate · Esc close</div>
       <div class="list">
         <div class="new-row" @click=${() => isNewActionPickerOpen.set(true)}>+ New Action</div>
         ${list.map((entry, i) => html`
@@ -210,6 +219,7 @@ export class ActionsApp extends LitElement {
             @contextmenu=${(e: Event) => { e.preventDefault(); editActionTarget.set(entry); }}
             @edit-action=${() => editActionTarget.set(entry)}
             @delete-action=${() => deleteActionTarget.set(entry)}
+            @duplicate-action=${() => duplicateAction(entry.id)}
           ></action-item>
         `)}
       </div>

@@ -1,8 +1,10 @@
 import { LitElement, html, css } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { SignalWatcher } from 'avosignals';
-import { newActionKind, editActionTarget, createAction, updateAction } from '../store/actions-store';
+import { newActionKind, editActionTarget, createAction, updateAction, allActionTags } from '../store/actions-store';
 import type { FormStep } from '../shared-types';
+import './tags-input';
+import './param-options-editor';
 
 @customElement('form-action-dialog')
 export class FormActionDialog extends LitElement {
@@ -11,6 +13,8 @@ export class FormActionDialog extends LitElement {
   @state() private _name = '';
   @state() private _url = '';
   @state() private _steps: FormStep[] = [{ value: '', then: 'tab' }, { value: '', then: 'enter' }];
+  @state() private _tags: string[] = [];
+  @state() private _paramOptions: Record<string, string[]> = {};
   private _wasOpen = false;
 
   static styles = css`
@@ -72,6 +76,8 @@ export class FormActionDialog extends LitElement {
       this._name = editing?.name ?? '';
       this._url = editing?.url ?? '';
       this._steps = editing?.steps ?? [{ value: '', then: 'tab' }, { value: '', then: 'enter' }];
+      this._tags = editing?.tags ?? [];
+      this._paramOptions = editing?.paramOptions ?? {};
       this.shadowRoot?.querySelector<HTMLInputElement>('#form-name-input')?.focus();
     }
     this._wasOpen = open;
@@ -87,6 +93,8 @@ export class FormActionDialog extends LitElement {
     this._name = '';
     this._url = '';
     this._steps = [{ value: '', then: 'tab' }, { value: '', then: 'enter' }];
+    this._tags = [];
+    this._paramOptions = {};
   }
 
   private _setStep(i: number, patch: Partial<FormStep>): void {
@@ -110,9 +118,9 @@ export class FormActionDialog extends LitElement {
     if (!this._name.trim() || steps.length === 0) return;
     const editing = editActionTarget.get();
     if (editing) {
-      updateAction(editing.id, { name: this._name, url: this._url, steps });
+      updateAction(editing.id, { name: this._name, url: this._url, steps, tags: this._tags, paramOptions: this._paramOptions });
     } else {
-      createAction({ name: this._name, kind: 'form', url: this._url, steps });
+      createAction({ name: this._name, kind: 'form', url: this._url, steps, tags: this._tags, paramOptions: this._paramOptions });
     }
     this._close();
   }
@@ -161,6 +169,11 @@ export class FormActionDialog extends LitElement {
             </div>
           `)}
           <button class="add-step" @click=${() => this._addStep()}>+ Add field</button>
+          <label for="form-tags-input">Tags</label>
+          <tags-input id="form-tags-input" .tags=${this._tags} .suggestions=${allActionTags.get()}
+            @tags-changed=${(e: CustomEvent) => (this._tags = e.detail.tags)}></tags-input>
+          <param-options-editor .text=${`${this._url}\n${this._steps.map((s) => s.value).join('\n')}`} .paramOptions=${this._paramOptions}
+            @param-options-changed=${(e: CustomEvent) => (this._paramOptions = e.detail.paramOptions)}></param-options-editor>
           <div class="actions">
             <button class="cancel" @click=${() => this._close()}>Cancel</button>
             <button class="confirm" ?disabled=${!canConfirm} @click=${() => this._confirm()}>Save</button>

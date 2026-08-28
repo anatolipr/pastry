@@ -1,7 +1,9 @@
 import { LitElement, html, css } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { SignalWatcher } from 'avosignals';
-import { newActionKind, editActionTarget, createAction, updateAction } from '../store/actions-store';
+import { newActionKind, editActionTarget, createAction, updateAction, allActionTags } from '../store/actions-store';
+import './tags-input';
+import './param-options-editor';
 
 @customElement('terminal-action-dialog')
 export class TerminalActionDialog extends LitElement {
@@ -10,6 +12,8 @@ export class TerminalActionDialog extends LitElement {
   @state() private _name = '';
   @state() private _command = '';
   @state() private _workingDirectory = '';
+  @state() private _tags: string[] = [];
+  @state() private _paramOptions: Record<string, string[]> = {};
   private _wasOpen = false;
 
   static styles = css`
@@ -54,6 +58,8 @@ export class TerminalActionDialog extends LitElement {
       this._name = editing?.name ?? '';
       this._command = editing?.command ?? '';
       this._workingDirectory = editing?.workingDirectory ?? '';
+      this._tags = editing?.tags ?? [];
+      this._paramOptions = editing?.paramOptions ?? {};
       this.shadowRoot?.querySelector<HTMLInputElement>('#terminal-name-input')?.focus();
     }
     this._wasOpen = open;
@@ -69,15 +75,17 @@ export class TerminalActionDialog extends LitElement {
     this._name = '';
     this._command = '';
     this._workingDirectory = '';
+    this._tags = [];
+    this._paramOptions = {};
   }
 
   private _confirm(): void {
     if (!this._name.trim() || !this._command.trim()) return;
     const editing = editActionTarget.get();
     if (editing) {
-      updateAction(editing.id, { name: this._name, command: this._command, workingDirectory: this._workingDirectory });
+      updateAction(editing.id, { name: this._name, command: this._command, workingDirectory: this._workingDirectory, tags: this._tags, paramOptions: this._paramOptions });
     } else {
-      createAction({ name: this._name, kind: 'terminal', command: this._command, workingDirectory: this._workingDirectory });
+      createAction({ name: this._name, kind: 'terminal', command: this._command, workingDirectory: this._workingDirectory, tags: this._tags, paramOptions: this._paramOptions });
     }
     this._close();
   }
@@ -105,6 +113,11 @@ export class TerminalActionDialog extends LitElement {
           <label for="terminal-workdir-input">Working Directory</label>
           <input id="terminal-workdir-input" .value=${this._workingDirectory} placeholder="/path/to/project"
             @input=${(e: Event) => (this._workingDirectory = (e.target as HTMLInputElement).value)} />
+          <label for="terminal-tags-input">Tags</label>
+          <tags-input id="terminal-tags-input" .tags=${this._tags} .suggestions=${allActionTags.get()}
+            @tags-changed=${(e: CustomEvent) => (this._tags = e.detail.tags)}></tags-input>
+          <param-options-editor .text=${`${this._command}\n${this._workingDirectory}`} .paramOptions=${this._paramOptions}
+            @param-options-changed=${(e: CustomEvent) => (this._paramOptions = e.detail.paramOptions)}></param-options-editor>
           <div class="actions">
             <button class="cancel" @click=${() => this._close()}>Cancel</button>
             <button class="confirm" ?disabled=${!this._name.trim() || !this._command.trim()} @click=${() => this._confirm()}>Save</button>

@@ -72,6 +72,9 @@ export const isPasteGroupDialogOpen = new Signal<boolean>(false, 'isPasteGroupDi
 export interface PlaceholderFillRequest {
   text: string;
   onConfirm: (values: Record<string, string>) => void;
+  /** Curated default values per placeholder name, shown ahead of typed-value history
+   * (e.g. an action's own paramOptions). Omitted by callers with no curated options. */
+  options?: Record<string, string[]>;
 }
 
 /** Set when something needs placeholder values filled in before it can proceed. */
@@ -619,8 +622,12 @@ export function closePasteGroupDialog(): void {
   isPasteGroupDialogOpen.set(false);
 }
 
-export function openPlaceholderFill(text: string, onConfirm: (values: Record<string, string>) => void): void {
-  placeholderFillTarget.set({ text, onConfirm });
+export function openPlaceholderFill(
+  text: string,
+  onConfirm: (values: Record<string, string>) => void,
+  options?: Record<string, string[]>,
+): void {
+  placeholderFillTarget.set({ text, onConfirm, options });
 }
 
 export function closePlaceholderFill(): void {

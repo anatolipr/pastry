@@ -1,7 +1,9 @@
 import { LitElement, html, css } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { SignalWatcher } from 'avosignals';
-import { newActionKind, editActionTarget, createAction, updateAction } from '../store/actions-store';
+import { newActionKind, editActionTarget, createAction, updateAction, allActionTags } from '../store/actions-store';
+import './tags-input';
+import './param-options-editor';
 
 @customElement('url-action-dialog')
 export class UrlActionDialog extends LitElement {
@@ -9,6 +11,8 @@ export class UrlActionDialog extends LitElement {
 
   @state() private _name = '';
   @state() private _url = '';
+  @state() private _tags: string[] = [];
+  @state() private _paramOptions: Record<string, string[]> = {};
   private _wasOpen = false;
 
   static styles = css`
@@ -52,6 +56,8 @@ export class UrlActionDialog extends LitElement {
       const editing = editActionTarget.get();
       this._name = editing?.name ?? '';
       this._url = editing?.url ?? '';
+      this._tags = editing?.tags ?? [];
+      this._paramOptions = editing?.paramOptions ?? {};
       this.shadowRoot?.querySelector<HTMLInputElement>('#url-name-input')?.focus();
     }
     this._wasOpen = open;
@@ -66,15 +72,17 @@ export class UrlActionDialog extends LitElement {
   private _reset(): void {
     this._name = '';
     this._url = '';
+    this._tags = [];
+    this._paramOptions = {};
   }
 
   private _confirm(): void {
     if (!this._name.trim() || !this._url.trim()) return;
     const editing = editActionTarget.get();
     if (editing) {
-      updateAction(editing.id, { name: this._name, url: this._url });
+      updateAction(editing.id, { name: this._name, url: this._url, tags: this._tags, paramOptions: this._paramOptions });
     } else {
-      createAction({ name: this._name, kind: 'url', url: this._url });
+      createAction({ name: this._name, kind: 'url', url: this._url, tags: this._tags, paramOptions: this._paramOptions });
     }
     this._close();
   }
@@ -99,6 +107,11 @@ export class UrlActionDialog extends LitElement {
           <label for="url-value-input">URL</label>
           <input id="url-value-input" .value=${this._url} placeholder="https://app.impact.com/monitor-stats/ma_manifest.branch"
             @input=${(e: Event) => (this._url = (e.target as HTMLInputElement).value)} />
+          <label for="url-tags-input">Tags</label>
+          <tags-input id="url-tags-input" .tags=${this._tags} .suggestions=${allActionTags.get()}
+            @tags-changed=${(e: CustomEvent) => (this._tags = e.detail.tags)}></tags-input>
+          <param-options-editor .text=${this._url} .paramOptions=${this._paramOptions}
+            @param-options-changed=${(e: CustomEvent) => (this._paramOptions = e.detail.paramOptions)}></param-options-editor>
           <div class="actions">
             <button class="cancel" @click=${() => this._close()}>Cancel</button>
             <button class="confirm" ?disabled=${!this._name.trim() || !this._url.trim()} @click=${() => this._confirm()}>Save</button>

@@ -3,6 +3,7 @@ import { customElement, state } from 'lit/decorators.js';
 import { ref, createRef } from 'lit/directives/ref.js';
 import { SignalWatcher } from 'avosignals';
 import { editTarget, isEditDialogOpen, updatePinnedItem, setEditTarget, allTags, openReminderDialog } from '../store/clipboard-store';
+import './tags-input';
 
 @customElement('edit-dialog')
 export class EditDialog extends LitElement {
@@ -12,8 +13,6 @@ export class EditDialog extends LitElement {
   @state() private _text = '';
   @state() private _htmlContent = '';
   @state() private _tags: string[] = [];
-  @state() private _tagInput = '';
-  @state() private _tagSuggestions: string[] = [];
   @state() private _hidden = false;
   @state() private _seeded = false;
   private _richEditorRef = createRef<HTMLDivElement>();
@@ -73,39 +72,6 @@ export class EditDialog extends LitElement {
     .remind:hover { background: var(--bg-active-pinned); }
     .confirm { background: var(--save-btn-bg); color: var(--save-btn-color); border-color: var(--save-btn-bg); font-weight: 600; }
     .confirm:hover { background: var(--save-btn-hover); }
-    .tag-field {
-      display: flex; flex-wrap: wrap; align-items: center; gap: 5px;
-      background: var(--bg-input); border: 1px solid var(--border-input-strong);
-      border-radius: 5px; padding: 5px 8px; min-height: 34px;
-      cursor: text; margin-bottom: 14px; position: relative;
-    }
-    .tag-field:focus-within { border-color: var(--accent-history); }
-    .pill {
-      display: inline-flex; align-items: center; gap: 4px;
-      background: var(--accent-history-bg); border: 1px solid var(--accent-history);
-      border-radius: 12px; color: var(--accent-history); font-size: 11px; font-weight: 600;
-      padding: 2px 8px 2px 10px; white-space: nowrap;
-    }
-    .pill-x {
-      background: none; border: none; color: var(--accent-history); cursor: pointer;
-      font-size: 13px; line-height: 1; padding: 0 0 0 2px; opacity: 0.7;
-    }
-    .pill-x:hover { opacity: 1; }
-    .tag-input {
-      flex: 1; min-width: 80px; background: transparent; border: none;
-      color: var(--text-primary); font-size: 13px; outline: none; padding: 2px;
-      font-family: inherit; margin-bottom: 0;
-    }
-    .suggestions {
-      position: absolute; top: calc(100% + 4px); left: 0; right: 0;
-      background: var(--bg-dialog); border: 1px solid var(--border-input-strong);
-      border-radius: 6px; box-shadow: 0 6px 20px rgba(0,0,0,0.5);
-      z-index: 200; overflow: hidden;
-    }
-    .suggestion {
-      padding: 6px 12px; font-size: 12px; color: var(--text-secondary); cursor: pointer;
-    }
-    .suggestion:hover { background: var(--bg-active-history); color: var(--text-primary); }
     .paste-hint {
       font-size: 11px; color: var(--text-muted); margin: -8px 0 12px; line-height: 1.4;
     }
@@ -138,39 +104,9 @@ export class EditDialog extends LitElement {
     }
   }
 
-  private _addTag(tag: string): void {
-    const t = tag.trim();
-    if (!t || this._tags.includes(t)) { this._tagInput = ''; this._tagSuggestions = []; return; }
-    this._tags = [...this._tags, t];
-    this._tagInput = '';
-    this._tagSuggestions = [];
-  }
-
-  private _removeTag(tag: string): void {
-    this._tags = this._tags.filter((t) => t !== tag);
-  }
-
-  private _onTagKeydown(e: KeyboardEvent): void {
-    if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); e.stopPropagation(); this._addTag(this._tagInput); }
-    else if (e.key === 'Tab' && this._tagInput.trim()) { e.preventDefault(); this._addTag(this._tagInput); }
-    else if (e.key === 'Backspace' && !this._tagInput && this._tags.length > 0) { this._removeTag(this._tags[this._tags.length - 1]); }
-    else if (e.key === 'Escape') { this._tagSuggestions = []; }
-  }
-
-  private _onTagInput(e: Event): void {
-    const val = (e.target as HTMLInputElement).value;
-    this._tagInput = val;
-    const q = val.trim().toLowerCase();
-    this._tagSuggestions = q
-      ? allTags.get().filter((s) => s.toLowerCase().includes(q) && !this._tags.includes(s))
-      : [];
-  }
-
   private _handleConfirm(): void {
     const entry = editTarget.get();
     if (!entry) return;
-    // Commit any pending tag text
-    if (this._tagInput.trim()) this._addTag(this._tagInput);
     let textToSave = this._text;
     let htmlToSave: string | undefined;
     if (entry.htmlContent) {
@@ -189,8 +125,6 @@ export class EditDialog extends LitElement {
   private _handleCancel(): void {
     setEditTarget(null);
     this._seeded = false;
-    this._tagInput = '';
-    this._tagSuggestions = [];
   }
 
   render() {
@@ -212,23 +146,8 @@ export class EditDialog extends LitElement {
             @keydown=${(e: KeyboardEvent) => { if (e.key === 'Enter') this._handleConfirm(); if (e.key === 'Escape') this._handleCancel(); }}
           />
           <label>Tags (optional)</label>
-          <div class="tag-field" @click=${() => this.shadowRoot?.querySelector<HTMLInputElement>('.tag-input')?.focus()}>
-            ${this._tags.map((tag) => html`
-              <span class="pill">${tag}
-                <button class="pill-x" @click=${(e: Event) => { e.stopPropagation(); this._removeTag(tag); }} tabindex="-1">×</button>
-              </span>`)}
-            <input class="tag-input" type="text" .value=${this._tagInput}
-              placeholder=${this._tags.length === 0 ? 'Add tag…' : ''}
-              @input=${this._onTagInput}
-              @keydown=${this._onTagKeydown}
-              @blur=${() => setTimeout(() => { this._tagSuggestions = []; if (this._tagInput.trim()) this._addTag(this._tagInput); }, 150)}
-            />
-            ${this._tagSuggestions.length > 0 ? html`
-              <div class="suggestions">
-                ${this._tagSuggestions.map((s) => html`
-                  <div class="suggestion" @mousedown=${(e: Event) => { e.preventDefault(); this._addTag(s); }}>${s}</div>`)}
-              </div>` : ''}
-          </div>
+          <tags-input .tags=${this._tags} .suggestions=${allTags.get()}
+            @tags-changed=${(e: CustomEvent) => (this._tags = e.detail.tags)}></tags-input>
           ${isImage
             ? html`<div class="image-preview"><img src=${entry.imageDataUrl!} alt=${entry.name || 'Image'} /></div>`
             : entry.htmlContent

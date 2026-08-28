@@ -1,7 +1,9 @@
 import { LitElement, html, css } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { SignalWatcher } from 'avosignals';
-import { newActionKind, editActionTarget, createAction, updateAction } from '../store/actions-store';
+import { newActionKind, editActionTarget, createAction, updateAction, allActionTags } from '../store/actions-store';
+import './tags-input';
+import './param-options-editor';
 
 @customElement('text-action-dialog')
 export class TextActionDialog extends LitElement {
@@ -10,6 +12,8 @@ export class TextActionDialog extends LitElement {
   @state() private _name = '';
   @state() private _text = '';
   @state() private _copyToClipboard = false;
+  @state() private _tags: string[] = [];
+  @state() private _paramOptions: Record<string, string[]> = {};
   private _wasOpen = false;
 
   static styles = css`
@@ -66,6 +70,8 @@ export class TextActionDialog extends LitElement {
       this._name = editing?.name ?? '';
       this._text = editing?.text ?? '';
       this._copyToClipboard = editing?.copyToClipboard ?? false;
+      this._tags = editing?.tags ?? [];
+      this._paramOptions = editing?.paramOptions ?? {};
       this.shadowRoot?.querySelector<HTMLInputElement>('#text-name-input')?.focus();
     }
     this._wasOpen = open;
@@ -81,15 +87,17 @@ export class TextActionDialog extends LitElement {
     this._name = '';
     this._text = '';
     this._copyToClipboard = false;
+    this._tags = [];
+    this._paramOptions = {};
   }
 
   private _confirm(): void {
     if (!this._name.trim() || !this._text.trim()) return;
     const editing = editActionTarget.get();
     if (editing) {
-      updateAction(editing.id, { name: this._name, text: this._text, copyToClipboard: this._copyToClipboard });
+      updateAction(editing.id, { name: this._name, text: this._text, copyToClipboard: this._copyToClipboard, tags: this._tags, paramOptions: this._paramOptions });
     } else {
-      createAction({ name: this._name, kind: 'text', text: this._text, copyToClipboard: this._copyToClipboard });
+      createAction({ name: this._name, kind: 'text', text: this._text, copyToClipboard: this._copyToClipboard, tags: this._tags, paramOptions: this._paramOptions });
     }
     this._close();
   }
@@ -120,6 +128,11 @@ export class TextActionDialog extends LitElement {
               @change=${(e: Event) => (this._copyToClipboard = (e.target as HTMLInputElement).checked)} />
             <label for="text-copy-checkbox">Copy to clipboard instead of inserting</label>
           </div>
+          <label for="text-tags-input">Tags</label>
+          <tags-input id="text-tags-input" .tags=${this._tags} .suggestions=${allActionTags.get()}
+            @tags-changed=${(e: CustomEvent) => (this._tags = e.detail.tags)}></tags-input>
+          <param-options-editor .text=${this._text} .paramOptions=${this._paramOptions}
+            @param-options-changed=${(e: CustomEvent) => (this._paramOptions = e.detail.paramOptions)}></param-options-editor>
           <div class="actions">
             <button class="cancel" @click=${() => this._close()}>Cancel</button>
             <button class="confirm" ?disabled=${!this._name.trim() || !this._text.trim()} @click=${() => this._confirm()}>Save</button>
